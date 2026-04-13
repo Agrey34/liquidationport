@@ -1,38 +1,49 @@
 # 🌐 1. API DESIGN (REST – Production Ready)
 
+**Architecture:** Hybrid Supabase + NestJS
+- **Supabase:** Handles authentication, user management, file storage, real-time subscriptions
+- **NestJS:** Handles complex business logic, transactions, payments, external integrations
+
 you can always improve the API design as you go, I AM open to suggestions
 -----------------------------------------------------------------------------------------------------------
 ---------------------------------------------- 🔐 AUTH ---------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
+**Handled by Supabase Auth** (JWT tokens stored in HttpOnly cookies)
+
 http id="a1"
-/auth/register        POST
-/auth/login           POST
-/auth/refresh         POST
-/auth/me              GET
+/auth/login           POST      (Supabase: email/password, OAuth providers)
+/auth/register        POST      (Supabase: creates user in auth.users)
+/auth/logout          POST      (Supabase: invalidates session)
+/auth/me              GET       (NestJS: validates JWT, fetches user profile from DB)
+/auth/refresh         POST      (Supabase: refreshes access token)
 
 
 -----------------------------------------------------------------------------------------------------------
 ----------------------------------------- 👤 USERS (Admin) ------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
+**Note:** User auth data lives in Supabase `auth.users`, profile data in public `users` table
+
 http id="a2"
-/users                GET
-/users/:id            GET
-/users/:id            PATCH
-/users/:id            DELETE
+/users                GET       (NestJS: fetches from public.users, joins with auth metadata)
+/users/:id            GET       (NestJS: fetches user profile)
+/users/:id            PATCH     (NestJS: updates profile; Supabase handles email/password changes)
+/users/:id            DELETE    (NestJS: soft deletes profile; Supabase handles auth deletion)
 
 
 -----------------------------------------------------------------------------------------------------------
 ---------------------------------------------- 📦 PRODUCTS ------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
+**Note:** Product images stored in Supabase Storage bucket `product-media`
+
 http id="a3"
-/products             GET
-/products/:id         GET
-/products             POST      (admin)
-/products/:id         PATCH     (admin)
-/products/:id         DELETE    (admin)
+/products             GET       (NestJS: fetches with variants, categories, media URLs from Supabase)
+/products/:id         GET       (NestJS: full product details with stock info)
+/products             POST      (admin) (NestJS: creates product; uploads images to Supabase Storage)
+/products/:id         PATCH     (admin) (NestJS: updates product; manages media in Supabase)
+/products/:id         DELETE    (admin) (NestJS: soft deletes product)
 
 
 -----------------------------------------------------------------------------------------------------------
@@ -50,51 +61,62 @@ http id="a4"
 ------------------------------------------------ 🛒 CART --------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
+**Note:** Cart can be stored in PostgreSQL (authenticated users) or Redis/cookie (guests)
+
 http id="a5"
-/cart                 GET
-/cart/items           POST      (add item)
-/cart/items/:id       PATCH     (update qty)
-/cart/items/:id       DELETE
+/cart                 GET       (NestJS: fetches user cart from DB)
+/cart/items           POST      (NestJS: adds item; validates product/variant exists)
+/cart/items/:id       PATCH     (NestJS: updates quantity; validates stock)
+/cart/items/:id       DELETE    (NestJS: removes item from cart)
 
 
 -----------------------------------------------------------------------------------------------------------
 --------------------------------------------- 📦 ORDERS --------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
+**CRITICAL:** All order operations use `prisma.$transaction` with price snapshotting
+
 http id="a6"
-/orders               POST      (checkout)
-/orders               GET       (user orders)
-/orders/:id           GET
+/orders               POST      (NestJS: checkout; validates stock; snapshots prices; creates order)
+/orders               GET       (NestJS: fetches user's order history)
+/orders/:id           GET       (NestJS: fetches single order with items and status)
 
 -----------------------------------------------------------------------------------------------------------
 -------------------------------------- Admin: ------------------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
 http id="a7"
-/admin/orders         GET
-/admin/orders/:id     PATCH     (update status)
+/admin/orders         GET       (NestJS: fetches all orders with filters)
+/admin/orders/:id     PATCH     (NestJS: updates order status; triggers events)
+/admin/products       POST      (NestJS: creates product with variants)
+/admin/users          GET       (NestJS: fetches users with role filters)
 
 
 -----------------------------------------------------------------------------------------------------------
 ----------------------------------------- 💳 PAYMENTS ----------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
-http id="a8"
-/payments/intent      POST
-/payments/webhook     POST   (Stripe webhook)
+**Note:** Stripe integration handled entirely by NestJS; webhooks verified with signature
 
+http id="a8"
+/payments/intent      POST      (NestJS: creates Stripe PaymentIntent with server-side price)
+/payments/webhook     POST      (NestJS: Stripe webhook; verifies signature; updates order status)
 
 Using:
-
-- Stripe
+- Stripe (Payment Intents API)
+- Supabase Edge Functions (optional: can handle lightweight webhook forwarding)
 
 -----------------------------------------------------------------------------------------------------------
 ------------------------------------------🔔 NOTIFICATIONS ------------------------------------------------
 -----------------------------------------------------------------------------------------------------------
 
+**Note:** Real-time notifications via Supabase Realtime subscriptions; storage in PostgreSQL
+
 http id="a9"
-/notifications        GET
-/notifications/:id    PATCH   (mark as read)
+/notifications        GET       (NestJS: fetches user notifications from DB)
+/notifications/:id    PATCH     (NestJS: marks as read; emits realtime update via Supabase)
+
+**Realtime:** Frontend subscribes to Supabase Realtime channel `notifications:user_id={uuid}`
 
 
 -----------------------------------------------------------------------------------------------------------
@@ -102,13 +124,16 @@ http id="a9"
 -----------------------------------------------------------------------------------------------------------
 
 http id="a10"
-/coupons              GET
-/coupons/apply        POST
+/coupons              GET       (NestJS: validates coupon code; returns discount details)
+/coupons/apply        POST      (NestJS: applies coupon to cart/order; validates rules)
 
 
 ========================== 🧠 2. ORDER SERVICE (THE HEART OF YOUR SYSTEM) ===================================
 
 This is the "most important code you will write".
+
+**Architecture Note:** Order service runs in NestJS with direct PostgreSQL connection via Prisma
+to Supabase-hosted database. All operations use transactions.
 
 -----------------------------------------------------------------------------------------------------------
 -------------------------------------------- Key rules ----------------------------------------------------
