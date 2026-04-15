@@ -55,7 +55,7 @@ export default function AdminSidebar() {
 
 
       {/* ===== DESKTOP: Collapsible Sidebar ===== */}
-      <div className={`hidden md:flex bg-white border-r border-neutral-200 h-full flex-col shadow-sm flex-shrink-0 transition-all duration-300 relative ${isCollapsed ? 'w-[84px]' : 'w-64'}`}>
+      <div className={`hidden md:flex bg-white border-r border-neutral-200 h-full flex-col shadow-sm shrink-0 transition-all duration-300 relative ${isCollapsed ? 'w-[84px]' : 'w-64'}`}>
         
     
         <button  onClick={() => setIsCollapsed(!isCollapsed)} className="absolute -right-3.5 top-20 bg-white border border-neutral-200 rounded-full p-1.5 shadow-sm text-neutral-500 hover:text-neutral-900 z-50 transition-colors">
