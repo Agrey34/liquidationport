@@ -1,9 +1,35 @@
+# ============================================================
+# LIQUIDATIONPORT — MONOREPO .gitignore
+# Covers: root, apps/web (Next.js), apps/api (NestJS/Prisma),
+#         libs/shared, and common tooling
+# ============================================================
+
 # ================================
-# Logs & Temp Files
+# Environment Variables (SECURITY — NEVER COMMIT)
 # ================================
-*.log
-*.tmp
-*.swp
+.env
+.env.local
+.env.*.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.*
+!.env.example
+!.env.*.example
+
+# ================================
+# Node / Package Managers
+# ================================
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -11,18 +37,64 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # ================================
-# Environment Variables (NEVER commit these)
+# Next.js (apps/web)
 # ================================
-.env
-.env.local
-.env.*.local
-.env.development.local
-.env.test.local
-.env.production.local
-.env.*
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+apps/web/.vercel
 
 # ================================
-# Editors
+# NestJS Build Output (apps/api)
+# ================================
+apps/api/dist/
+
+# ================================
+# Prisma Generated Client (apps/api)
+# Keep: schema.prisma, migrations/
+# Ignore: generated client & binary engines
+# ================================
+apps/api/node_modules/.prisma/
+apps/api/src/generated/
+apps/api/prisma/generated/
+apps/api/**/*.d.ts.map
+
+# ================================
+# TypeScript Build Info
+# ================================
+*.tsbuildinfo
+apps/web/.next/cache/.tsbuildinfo
+
+# ================================
+# Turbo / Monorepo Build Cache
+# ================================
+.turbo/
+.cache/
+apps/web/.next/cache/
+
+# ================================
+# Testing & Coverage
+# ================================
+coverage/
+apps/api/coverage/
+apps/web/coverage/
+libs/shared/coverage/
+.nyc_output/
+*.lcov
+htmlcov/
+.coverage
+
+# ================================
+# Logs & Temp Files
+# ================================
+*.log
+*.tmp
+*.swp
+logs/
+apps/api/logs/
+
+# ================================
+# Editors & IDEs
 # ================================
 .vscode/
 .idea/
@@ -33,46 +105,6 @@ lerna-debug.log*
 *.sw?
 
 # ================================
-# Dependencies
-# ================================
-node_modules/
-.pnp
-.pnp.js
-
-# ================================
-# Next.js (apps/web)
-# ================================
-.next/
-out/
-next-env.d.ts
-
-# ================================
-# NestJS / Build Output (apps/api)
-# ================================
-dist/
-build/
-
-# ================================
-# Prisma
-# ================================
-# Keep schema.prisma and migrations, but ignore the generated client
-apps/api/node_modules/.prisma/
-
-# ================================
-# TypeScript
-# ================================
-*.tsbuildinfo
-
-# ================================
-# Testing & Coverage
-# ================================
-coverage/
-htmlcov/
-.coverage
-*.lcov
-.nyc_output/
-
-# ================================
 # System Files
 # ================================
 .DS_Store
@@ -81,14 +113,20 @@ ehthumbs.db
 Desktop.ini
 
 # ================================
-# Turbo / Monorepo Build Cache
-# ================================
-.turbo/
-.cache/
-
-# ================================
-# Misc
+# Security / Credentials
 # ================================
 *.pem
+*.key
+*.cert
+*.p12
+*.pfx
+serviceAccountKey.json
+
+# ================================
+# Misc Build & Deploy Artifacts
+# ================================
 .vercel
 .netlify
+dist/
+build/
+out/
