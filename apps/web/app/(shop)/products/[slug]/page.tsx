@@ -26,12 +26,12 @@ const MOCK_PALLET = {
     'https://images.unsplash.com/photo-1583847268964-b28e5f884f67?q=80&w=800&auto=format&fit=crop',
   ],
   manifest: [
-    { upc: '00850020141231', qty: 2, desc: 'Mainstays 10-Piece Cookware Set', msrp: 49.99 },
-    { upc: '00810012589012', qty: 1, desc: 'Ozark Trail 8-Person Family Tent', msrp: 149.00 },
-    { upc: '00741258963214', qty: 4, desc: 'Protege 2-Piece Hard Side Luggage Set', msrp: 89.00 },
-    { upc: '00412587963254', qty: 3, desc: 'Keurig K-Express Coffee Maker', msrp: 79.00 },
-    { upc: '00852147963012', qty: 2, desc: 'Igloo 60 Quart Rolling Cooler', msrp: 55.00 },
-    { upc: '00963258741025', qty: 4, desc: 'Farberware 15-Piece Knife Block Set', msrp: 35.00 },
+    { manufacturer: 'Mainstays', productName: 'Mainstays 10-Piece Cookware Set', product: 'MS-CK10', condition: 'Untested Customer Returns', upc: '00850020141231', qty: 2, msrp: 49.99 },
+    { manufacturer: 'Ozark Trail', productName: 'Ozark Trail 8-Person Family Tent', product: 'OT-8FT', condition: 'Untested Customer Returns', upc: '00810012589012', qty: 1, msrp: 149.00 },
+    { manufacturer: 'Protege', productName: 'Protege 2-Piece Hard Side Luggage Set', product: 'PT-2PLG', condition: 'Damaged/Missing Parts', upc: '00741258963214', qty: 4, msrp: 89.00 },
+    { manufacturer: 'Keurig', productName: 'Keurig K-Express Coffee Maker', product: 'K-EXP', condition: 'Untested Customer Returns', upc: '00412587963254', qty: 3, msrp: 79.00 },
+    { manufacturer: 'Igloo', productName: 'Igloo 60 Quart Rolling Cooler', product: 'IG-60QT', condition: 'Damaged/Missing Parts', upc: '00852147963012', qty: 2, msrp: 55.00 },
+    { manufacturer: 'Farberware', productName: 'Farberware 15-Piece Knife Block Set', product: 'FW-15KNF', condition: 'Damaged/Missing Parts', upc: '00963258741025', qty: 4, msrp: 35.00 },
   ],
   description: "This pallet consists of a variety of kitchen and dining items, luggage, and outdoor gear sourced directly from Walmart customer returns. Items are sold AS-IS and have not been tested or inspected for functionality. Some boxes may show wear or be repackaged. Great selection of established brands."
 };
@@ -292,36 +292,72 @@ export default function ProductDetailsPage() {
                   </div>
 
                   <div className="overflow-x-auto rounded-xl border border-neutral-200">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse text-sm">
                       <thead>
-                        <tr className="bg-neutral-50 text-neutral-700 border-b border-neutral-200">
-                          <th className="p-4 font-semibold text-sm">UPC / Barcode</th>
-                          <th className="p-4 font-semibold text-sm">Description</th>
-                          <th className="p-4 font-semibold text-sm text-right">Qty</th>
-                          <th className="p-4 font-semibold text-sm text-right">Unit MSRP</th>
-                          <th className="p-4 font-semibold text-sm text-right">Ext MSRP</th>
+                        <tr className="border-b border-neutral-200">
+                          <th className="px-4 py-3 text-xs font-bold text-neutral-700">
+                            Manufacturer
+                            <span className="ml-1 text-neutral-400">↑</span>
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">Product Name</th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">Product</th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">Condition</th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">UPC</th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500 text-center">QTY</th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500 text-right">MSRP</th>
+                          <th className="px-4 py-3 text-xs font-medium text-neutral-500 text-right">EXT MSRP</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-neutral-200 bg-white">
+                      <tbody className="divide-y divide-neutral-100 bg-white">
                         {MOCK_PALLET.manifest.map((item, idx) => (
                           <tr key={idx} className="hover:bg-neutral-50 transition-colors">
-                            <td className="p-4 font-mono text-xs text-neutral-500">{item.upc}</td>
-                            <td className="p-4 text-sm font-medium text-neutral-900">{item.desc}</td>
-                            <td className="p-4 text-sm text-right font-bold text-neutral-700">{item.qty}</td>
-                            <td className="p-4 text-sm text-right text-neutral-600">${item.msrp.toFixed(2)}</td>
-                            <td className="p-4 text-sm text-right font-bold text-neutral-900 flex justify-end items-center gap-2">
-                               ${(item.msrp * item.qty).toFixed(2)}
-                            </td>
+                            <td className="px-4 py-3 text-sm font-medium text-neutral-800">{item.manufacturer}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-900 font-semibold">{item.productName}</td>
+                            <td className="px-4 py-3 text-xs font-mono text-neutral-500">{item.product}</td>
+                            <td className="px-4 py-3 text-sm text-neutral-600">{item.condition}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-neutral-500">{item.upc}</td>
+                            <td className="px-4 py-3 text-sm text-center font-bold text-neutral-800">{item.qty}</td>
+                            <td className="px-4 py-3 text-sm text-right text-neutral-600">${item.msrp.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-sm text-right font-bold text-neutral-900">${(item.msrp * item.qty).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                           </tr>
                         ))}
-                        <tr className="bg-neutral-50 font-bold border-t-2 border-neutral-300 text-neutral-900">
-                          <td colSpan={2} className="p-4 text-right">Totals</td>
-                          <td className="p-4 text-right">{MOCK_PALLET.quantity}</td>
-                          <td className="p-4 text-right">--</td>
-                          <td className="p-4 text-right">${MOCK_PALLET.msrp.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                        {/* Totals */}
+                        <tr className="border-t-2 border-neutral-200 bg-neutral-50 font-bold text-neutral-900">
+                          <td colSpan={4} className="px-4 py-3"></td>
+                          <td className="px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider text-right">Totals</td>
+                          <td className="px-4 py-3 text-center">{MOCK_PALLET.quantity}</td>
+                          <td className="px-4 py-3 text-right text-neutral-400">--</td>
+                          <td className="px-4 py-3 text-right">${MOCK_PALLET.msrp.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
                         </tr>
                       </tbody>
                     </table>
+                  </div>
+
+                  {/* Download button */}
+                  <div className="flex justify-center mt-5">
+                    <a
+                      href="#"
+                      onClick={e => {
+                        e.preventDefault();
+                        const headers = ['Manufacturer','Product Name','Product','Condition','UPC','QTY','MSRP','EXT MSRP'];
+                        const rows = MOCK_PALLET.manifest.map(r => [
+                          r.manufacturer, r.productName, r.product, r.condition, r.upc, String(r.qty),
+                          `$${r.msrp.toFixed(2)}`, `$${(r.msrp * r.qty).toFixed(2)}`
+                        ]);
+                        const csv = [headers,...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = 'pallet-manifest.csv'; a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 border border-neutral-300 rounded-xl text-sm font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 transition-all"
+                    >
+                      <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                      </svg>
+                      Download full manifest
+                    </a>
                   </div>
                   
                   <div className="mt-4 flex items-start gap-2 text-xs text-rose-600 bg-rose-50 p-3 rounded-lg border border-rose-100">
