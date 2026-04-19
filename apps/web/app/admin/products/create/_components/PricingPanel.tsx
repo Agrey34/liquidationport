@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { DollarSign } from 'lucide-react';
+
 import { Field, inputCls } from './FormSection';
 
 interface Props {
@@ -23,7 +23,7 @@ export function PricingPanel({ basePrice, setBasePrice, comparePrice, setCompare
   return (
     <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-neutral-100 flex items-center gap-2">
-        <DollarSign className="w-4 h-4 text-neutral-500" />
+        <i className="fi fi-rr-dollar text-lg text-neutral-500 flex items-center justify-center shrink-0" />
         <h3 className="font-bold text-neutral-900">Pricing</h3>
       </div>
       <div className="p-5 space-y-4">

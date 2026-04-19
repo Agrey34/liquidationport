@@ -1,7 +1,7 @@
 import React from 'react';
+import '@flaticon/flaticon-uicons/css/all/all.css';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-
 export default function AdminLayout({
   children,
 }: {

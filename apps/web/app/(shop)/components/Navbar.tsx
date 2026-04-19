@@ -3,10 +3,15 @@ import Image from "next/image";
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, Search, ChevronDown, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu, Search, ChevronDown, X, ShoppingCart } from "lucide-react";
+import CartDrawer from "./CartDrawer";
 
 export default function Navbar() {
+  const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Prevent scrolling when mobile menu is open
   useEffect(() => {
@@ -22,17 +27,22 @@ export default function Navbar() {
     };
   }, [isMobileMenuOpen]);
 
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
   // Drawer menu items
   const menuItems = [
-    { name: "Home", href: "#" },
-    { name: "Full Catalog", href: "#" },
+    { name: "Home", href: "/" },
+    { name: "Full Catalog", href: "/products" },
     { name: "About us", href: "/about" },
     { name: "How it works", href: "/how-it-works" },
-    { name: "Merchandise Conditions", href: "#" },
-    { name: "Blog", href: "#" },
+    { name: "Merchandise Conditions", href: "/products" },
     { name: "Terms and conditions", href: "/terms" },
     { name: "Privacy Policy", href: "/privacy-policy" },
-    { name: "Your privacy choices", href: "#" },
   ];
 
   return (
@@ -62,16 +72,18 @@ export default function Navbar() {
                 <button className="flex items-center mr-2 bg-transparent border-2 border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-200 shrink-0">
                   Category <ChevronDown className="h-4 w-4 ml-1 opacity-60" />
                 </button>
-              <div className="w-full max-w-3xl flex bg-[#f0f2f5] rounded-md overflow-hidden border border-transparent focus-within:border-gray-300 transition-all">
+              <form onSubmit={handleSearchSubmit} className="w-full max-w-3xl flex bg-[#f0f2f5] rounded-md overflow-hidden border border-transparent focus-within:border-gray-300 transition-all">
                 <input
                   type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-transparent px-4 py-2.5 text-sm outline-none text-gray-800 placeholder-gray-500"
                   placeholder="Search"
                 />
-                <button className="px-4 py-2.5 text-gray-500 hover:text-gray-800 transition-colors">
+                <button type="submit" className="px-4 py-2.5 text-gray-500 hover:text-gray-800 transition-colors">
                   <Search className="h-5 w-5" />
                 </button>
-              </div>
+              </form>
             </div>
 
             {/* Right: Region & Auth */}
@@ -92,6 +104,14 @@ export default function Navbar() {
                       Sign up
                   </Link>
               </div>
+              
+              <button 
+                onClick={() => setIsCartOpen(true)}
+                className="relative p-2 text-gray-600 hover:text-primary transition-colors hover:bg-gray-100 rounded-full"
+              >
+                 <ShoppingCart className="w-5 h-5" />
+                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+              </button>
               
               {/* Mobile Auth Links Fallback */}
               <div className="sm:hidden flex items-center space-x-4">
@@ -161,6 +181,8 @@ export default function Navbar() {
           </ul>
         </nav>
       </div>
+
+      <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
   );
 }

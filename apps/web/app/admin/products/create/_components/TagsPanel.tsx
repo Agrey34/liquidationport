@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, X, Tag } from 'lucide-react';
+
 import { inputCls } from './FormSection';
 
 interface Props {
@@ -16,7 +16,7 @@ export function TagsPanel({ tags, tagInput, setTagInput, onAdd, onRemove }: Prop
   return (
     <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-neutral-100 flex items-center gap-2">
-        <Tag className="w-4 h-4 text-neutral-500" />
+        <i className="fi fi-rr-tags text-lg text-neutral-500 flex items-center justify-center shrink-0" />
         <h3 className="font-bold text-neutral-900">Tags</h3>
       </div>
       <div className="p-5 space-y-3">
@@ -35,7 +35,7 @@ export function TagsPanel({ tags, tagInput, setTagInput, onAdd, onRemove }: Prop
             onClick={onAdd}
             className="px-3 py-2.5 bg-neutral-900 text-white rounded-xl hover:bg-neutral-700 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <i className="fi fi-rr-plus text-lg flex items-center justify-center shrink-0" />
           </button>
         </div>
 
@@ -52,7 +52,7 @@ export function TagsPanel({ tags, tagInput, setTagInput, onAdd, onRemove }: Prop
                   onClick={() => onRemove(t)}
                   className="hover:text-rose-500 transition-colors"
                 >
-                  <X className="w-3 h-3" />
+                  <i className="fi fi-rr-cross-small text-lg flex items-center justify-center shrink-0" />
                 </button>
               </span>
             ))}

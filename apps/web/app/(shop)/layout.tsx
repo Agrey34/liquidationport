@@ -2,6 +2,8 @@ import React from 'react';
 import { MessageSquare } from "lucide-react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
+import ChatWidget from "./components/ChatWidget";
+import BottomNav from "./components/BottomNav";
 
 export default function ShopLayout({
   children,
@@ -9,17 +11,18 @@ export default function ShopLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <div className="pb-16 sm:pb-0">
       <Navbar />
       <main className="flex-1">
         {children}
       </main>
       <Footer />
       
+      {/* Mobile Bottom Navigation */}
+      <BottomNav />
+
       {/* Persistent Chat Bubble */}
-      <button className="fixed bottom-6 right-6 h-14 w-14 bg-primary text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-accent transition-colors z-50">
-        <MessageSquare className="h-6 w-6" fill="currentColor" />
-      </button>
-    </>
+      <ChatWidget />
+    </div>
   );
 }

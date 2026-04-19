@@ -1,7 +1,8 @@
+
 'use client';
 
 import React from 'react';
-import { Plus, Trash2, Boxes } from 'lucide-react';
+
 import { Section, inputCls } from './FormSection';
 import { Variant } from './FormSection';
 
@@ -17,7 +18,7 @@ export function VariantsSection({ variants, onAdd, onUpdate, onRemove }: Props) 
     <Section
       title="Product Variants"
       description="Optional: add size, grade, or lot-size variants."
-      icon={Boxes}
+      icon={'fi fi-rr-boxes'}
     >
       <div className="space-y-3">
         {variants.length === 0 ? (
@@ -31,7 +32,7 @@ export function VariantsSection({ variants, onAdd, onUpdate, onRemove }: Props) 
               <div className="col-span-4 flex justify-between items-center mb-1">
                 <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Variant {i + 1}</span>
                 <button type="button" onClick={() => onRemove(v.id)} className="text-rose-500 hover:text-rose-700 transition-colors">
-                  <Trash2 className="w-4 h-4" />
+                  <i className="fi fi-rr-trash text-lg flex items-center justify-center shrink-0" />
                 </button>
               </div>
               <input type="text" placeholder="Variant name (e.g. Grade A)"
@@ -55,7 +56,7 @@ export function VariantsSection({ variants, onAdd, onUpdate, onRemove }: Props) 
           onClick={onAdd}
           className="flex items-center gap-2 text-sm font-semibold text-neutral-700 hover:text-neutral-900 border border-dashed border-neutral-200 hover:border-neutral-400 px-4 py-3 rounded-xl w-full justify-center transition-all hover:bg-neutral-50"
         >
-          <Plus className="w-4 h-4" />
+          <i className="fi fi-rr-plus text-lg flex items-center justify-center shrink-0" />
           Add Variant
         </button>
       </div>

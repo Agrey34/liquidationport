@@ -108,10 +108,11 @@ export default function ProductDetailsPage() {
               }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img 
+              <Image 
+                fill={true}
                 src={MOCK_PALLET.images[activeImage]} 
                 alt="Main product" 
-                className="w-full h-full object-contain mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2]" 
+                className="object-contain mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2] p-8" 
               />
             </motion.div>
           </div>

@@ -85,7 +85,7 @@ export default function CategoryGrid() {
               const categorySlug = category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
               return (
                 <Link 
-                  href={`/category/${categorySlug}`}
+                  href={`/products?category=${encodeURIComponent(category.name)}`}
                   key={category.name} 
                   className="flex flex-col items-center justify-start min-w-[80px] sm:min-w-[110px] cursor-pointer group shrink-0"
                 >

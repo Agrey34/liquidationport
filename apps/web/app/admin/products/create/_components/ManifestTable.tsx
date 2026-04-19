@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+
 import { ManifestRow } from './FormSection';
 
 interface Props {
@@ -125,7 +125,7 @@ export function ManifestTable({ rows, onAdd, onUpdate, onRemove, onDownload }: P
                         className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-50 text-neutral-300 hover:text-rose-500 transition-all"
                         title="Remove row"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <i className="fi fi-rr-trash w-3.5 h-3.5 flex items-center justify-center shrink-0" />
                       </button>
                     </td>
                   </tr>
@@ -163,7 +163,7 @@ export function ManifestTable({ rows, onAdd, onUpdate, onRemove, onDownload }: P
         <div className="border-t border-red-800 px-4 py-3 bg-amber-400">
           <button type="button" onClick={onAdd}
                className="flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition-colors">
-               <Plus className="w-3.5 h-3.5" />
+               <i className="fi fi-rr-plus w-3.5 h-3.5 flex items-center justify-center shrink-0" />
                Add Item
           </button>
         </div>

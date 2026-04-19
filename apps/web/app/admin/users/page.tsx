@@ -1,41 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import {
-  Users,
-  Search,
-  Filter,
-  MoreHorizontal,
-  ShieldCheck,
-  ShieldOff,
-  UserCheck,
-  UserX,
-  UserCog,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Mail,
-  Phone,
-  MapPin,
-  ShoppingBag,
-  DollarSign,
-  Calendar,
-  Eye,
-  Trash2,
-  Download,
-  X,
-  Crown,
-  ActivitySquare,
-  Clock,
-  TrendingUp,
-  Ban,
-  RefreshCw,
-} from 'lucide-react';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,26 +143,26 @@ const PAGE_SIZE = 8;
 
 // ─── Configs ──────────────────────────────────────────────────────────────────
 
-const roleConfig: Record<UserRole, { label: string; color: string; icon: React.FC<{ className?: string }> }> = {
-  customer:   { label: 'Customer',   color: 'bg-blue-100 text-blue-700',     icon: UserCheck },
-  admin:      { label: 'Admin',      color: 'bg-violet-100 text-violet-700', icon: ShieldCheck },
-  super_admin:{ label: 'Super Admin',color: 'bg-amber-100 text-amber-700',   icon: Crown },
+const roleConfig: Record<UserRole, { label: string; color: string; icon: string }> = {
+  customer:   { label: 'Customer',   color: 'bg-blue-100 text-blue-700',     icon: 'fi fi-rr-user-check' },
+  admin:      { label: 'Admin',      color: 'bg-violet-100 text-violet-700', icon: 'fi fi-rr-shield-check' },
+  super_admin:{ label: 'Super Admin',color: 'bg-amber-100 text-amber-700',   icon: 'fi fi-rr-crown' },
 };
 
-const statusConfig: Record<UserStatus, { label: string; color: string; dot: string; icon: React.FC<{ className?: string }> }> = {
-  active:    { label: 'Active',    color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', icon: CheckCircle2 },
-  suspended: { label: 'Suspended', color: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500',   icon: AlertTriangle },
-  pending:   { label: 'Pending',   color: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-500',     icon: Clock },
-  banned:    { label: 'Banned',    color: 'bg-rose-100 text-rose-700',      dot: 'bg-rose-500',    icon: XCircle },
+const statusConfig: Record<UserStatus, { label: string; color: string; dot: string; icon: string }> = {
+  active:    { label: 'Active',    color: 'bg-emerald-100 text-emerald-700', dot: 'bg-emerald-500', icon: 'fi fi-rr-check-circle' },
+  suspended: { label: 'Suspended', color: 'bg-amber-100 text-amber-700',    dot: 'bg-amber-500',   icon: 'fi fi-rr-triangle-warning' },
+  pending:   { label: 'Pending',   color: 'bg-sky-100 text-sky-700',        dot: 'bg-sky-500',     icon: 'fi fi-rr-clock-three' },
+  banned:    { label: 'Banned',    color: 'bg-rose-100 text-rose-700',      dot: 'bg-rose-500',    icon: 'fi fi-rr-cross-circle' },
 };
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: UserRole }) {
-  const { label, color, icon: Icon } = roleConfig[role];
+  const { label, color, icon } = roleConfig[role];
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${color}`}>
-      <Icon className="w-3 h-3" />
+      <i className={`${icon} w-3 h-3 flex items-center justify-center`} />
       {label}
     </span>
   );
@@ -213,10 +179,10 @@ function StatusBadge({ status }: { status: UserStatus }) {
 }
 
 function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: SortDir } }) {
-  if (sort.key !== col) return <ArrowUpDown className="w-3.5 h-3.5 text-neutral-300 ml-1" />;
+  if (sort.key !== col) return <i className="fi fi-rr-arrows-up-down w-3.5 h-3.5 text-neutral-300 ml-1 flex items-center justify-center shrink-0" />;
   return sort.dir === 'asc'
-    ? <ArrowUp   className="w-3.5 h-3.5 text-neutral-900 ml-1" />
-    : <ArrowDown className="w-3.5 h-3.5 text-neutral-900 ml-1" />;
+    ? <i className="fi fi-rr-arrow-up w-3.5 h-3.5 text-neutral-900 ml-1 flex items-center justify-center shrink-0" />
+    : <i className="fi fi-rr-arrow-down w-3.5 h-3.5 text-neutral-900 ml-1 flex items-center justify-center shrink-0" />;
 }
 
 // ─── Row Action Menu ──────────────────────────────────────────────────────────
@@ -245,37 +211,37 @@ function RowMenu({
         onClick={() => setOpen(!open)}
         className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors"
       >
-        <MoreHorizontal className="w-4 h-4" />
+        <i className="fi fi-rr-menu-dots text-lg flex items-center justify-center shrink-0" />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 top-8 z-20 w-52 bg-white border border-neutral-200 rounded-xl shadow-xl py-1.5 overflow-hidden">
             <button onClick={() => wrap(onView)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors">
-              <Eye className="w-4 h-4 text-neutral-400" /> View Profile
+              <i className="fi fi-rr-eye text-lg text-neutral-400 flex items-center justify-center shrink-0" /> View Profile
             </button>
             <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors">
-              <Mail className="w-4 h-4 text-neutral-400" /> Send Email
+              <i className="fi fi-rr-envelope text-lg text-neutral-400 flex items-center justify-center shrink-0" /> Send Email
             </button>
             <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors">
-              <UserCog className="w-4 h-4 text-neutral-400" /> Change Role
+              <i className="fi fi-rr-user-gear text-lg text-neutral-400 flex items-center justify-center shrink-0" /> Change Role
             </button>
             <div className="my-1 border-t border-neutral-100" />
             {user.status === 'active' ? (
               <button onClick={() => wrap(onSuspend)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
-                <UserX className="w-4 h-4" /> Suspend User
+                <i className="fi fi-rr-delete-user text-lg flex items-center justify-center shrink-0" /> Suspend User
               </button>
             ) : (
               <button onClick={() => wrap(onReactivate)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors">
-                <RefreshCw className="w-4 h-4" /> Reactivate
+                <i className="fi fi-rr-refresh text-lg flex items-center justify-center shrink-0" /> Reactivate
               </button>
             )}
             <button onClick={() => wrap(onBan)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
-              <Ban className="w-4 h-4" /> Ban User
+              <i className="fi fi-rr-ban text-lg flex items-center justify-center shrink-0" /> Ban User
             </button>
             <div className="my-1 border-t border-neutral-100" />
             <button onClick={() => wrap(onDelete)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
-              <Trash2 className="w-4 h-4" /> Delete Account
+              <i className="fi fi-rr-trash text-lg flex items-center justify-center shrink-0" /> Delete Account
             </button>
           </div>
         </>
@@ -307,7 +273,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-neutral-100 text-neutral-500 hover:text-neutral-900 transition-colors"
           >
-            <X className="w-5 h-5" />
+            <i className="fi fi-rr-cross-small text-lg flex items-center justify-center shrink-0" />
           </button>
         </div>
 
@@ -321,7 +287,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
               <h3 className="text-lg font-bold text-neutral-900 truncate">{user.name}</h3>
               {user.flagged && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full text-xs font-semibold">
-                  <AlertTriangle className="w-3 h-3" /> Flagged
+                  <i className="fi fi-rr-triangle-warning text-lg flex items-center justify-center shrink-0" /> Flagged
                 </span>
               )}
             </div>
@@ -331,7 +297,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
               <StatusBadge status={user.status} />
               {!user.verifiedEmail && (
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
-                  <Mail className="w-3 h-3" /> Unverified Email
+                  <i className="fi fi-rr-envelope text-lg flex items-center justify-center shrink-0" /> Unverified Email
                 </span>
               )}
             </div>
@@ -365,14 +331,14 @@ function UserDrawer({ user, onClose, onStatusChange }: {
                 <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Contact Information</h4>
                 <div className="grid grid-cols-1 gap-3">
                   {[
-                    { icon: Mail,     label: 'Email',    value: user.email },
-                    { icon: Phone,    label: 'Phone',    value: user.phone },
-                    { icon: MapPin,   label: 'Location', value: user.location },
-                    { icon: Calendar, label: 'Joined',   value: user.joinedAt },
-                    { icon: Clock,    label: 'Last Seen',value: user.lastSeen },
-                  ].map(({ icon: Icon, label, value }) => (
+                    { icon: 'fi fi-rr-envelope',     label: 'Email',    value: user.email },
+                    { icon: 'fi fi-rr-phone-call',    label: 'Phone',    value: user.phone },
+                    { icon: 'fi fi-rr-marker',   label: 'Location', value: user.location },
+                    { icon: 'fi fi-rr-calendar', label: 'Joined',   value: user.joinedAt },
+                    { icon: 'fi fi-rr-clock-three',    label: 'Last Seen',value: user.lastSeen },
+                  ].map(({ icon, label, value }) => (
                     <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-neutral-50">
-                      <Icon className="w-4 h-4 text-neutral-400 shrink-0" />
+                      <i className={`${icon} w-4 h-4 text-neutral-400 shrink-0 flex items-center justify-center`} />
                       <div className="min-w-0">
                         <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">{label}</p>
                         <p className="text-sm text-neutral-800 font-medium truncate">{value}</p>
@@ -401,7 +367,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
               {user.flagged && (
                 <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    <i className="fi fi-rr-triangle-warning text-lg text-rose-600 flex items-center justify-center shrink-0" />
                     <h4 className="text-sm font-bold text-rose-700">Security Warning</h4>
                   </div>
                   <p className="text-xs text-rose-600 leading-relaxed">
@@ -417,7 +383,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
               <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Recent Activity Log</h4>
               {user.activity.length === 0 ? (
                 <div className="text-center py-10 text-neutral-400">
-                  <ActivitySquare className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <i className="fi fi-rr-chart-pie text-lg mx-auto mb-3 opacity-30 flex items-center justify-center shrink-0" />
                   <p className="text-sm">No activity recorded yet.</p>
                 </div>
               ) : (
@@ -442,7 +408,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
 
           {activeTab === 'orders' && (
             <div className="text-center py-12 text-neutral-400">
-              <ShoppingBag className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <i className="fi fi-rr-shopping-bag text-lg mx-auto mb-3 opacity-30 flex items-center justify-center shrink-0" />
               <p className="text-sm font-medium">
                 {user.orderCount === 0 ? 'No orders placed yet.' : `${user.orderCount} orders — connect to live API to view.`}
               </p>
@@ -457,21 +423,21 @@ function UserDrawer({ user, onClose, onStatusChange }: {
               onClick={() => onStatusChange(user.id, 'suspended')}
               className="flex-1 py-2.5 bg-amber-50 text-amber-700 rounded-xl text-sm font-bold border border-amber-200 hover:bg-amber-100 transition-colors flex items-center justify-center gap-2"
             >
-              <UserX className="w-4 h-4" /> Suspend
+              <i className="fi fi-rr-delete-user text-lg flex items-center justify-center shrink-0" /> Suspend
             </button>
           ) : (
             <button
               onClick={() => onStatusChange(user.id, 'active')}
               className="flex-1 py-2.5 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold border border-emerald-200 hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
             >
-              <RefreshCw className="w-4 h-4" /> Reactivate
+              <i className="fi fi-rr-refresh text-lg flex items-center justify-center shrink-0" /> Reactivate
             </button>
           )}
           <button
             onClick={() => onStatusChange(user.id, 'banned')}
             className="flex-1 py-2.5 bg-rose-50 text-rose-600 rounded-xl text-sm font-bold border border-rose-200 hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
           >
-            <Ban className="w-4 h-4" /> Ban Account
+            <i className="fi fi-rr-ban text-lg flex items-center justify-center shrink-0" /> Ban Account
           </button>
         </div>
       </div>
@@ -587,14 +553,14 @@ export default function UsersPage() {
           <button
             className="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-50 transition-colors shadow-sm"
           >
-            <Download className="w-4 h-4" /> Export CSV
+            <i className="fi fi-rr-download text-lg flex items-center justify-center shrink-0" /> Export CSV
           </button>
           {flaggedCount > 0 && (
             <button
               onClick={() => setTabFilter('suspended')}
               className="inline-flex items-center gap-2 bg-rose-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-rose-700 transition-colors shadow-sm"
             >
-              <AlertTriangle className="w-4 h-4" />
+              <i className="fi fi-rr-triangle-warning text-lg flex items-center justify-center shrink-0" />
               {flaggedCount} Flagged
             </button>
           )}
@@ -604,14 +570,14 @@ export default function UsersPage() {
       {/* ── KPI Stats ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Users',      value: totalUsers,     icon: Users,       color: 'text-blue-600 bg-blue-50' },
-          { label: 'Active Accounts',  value: activeUsers,    icon: UserCheck,   color: 'text-emerald-600 bg-emerald-50' },
-          { label: 'Restricted',       value: suspendedUsers, icon: ShieldOff,   color: 'text-rose-600 bg-rose-50' },
-          { label: 'New This Month',   value: newThisMonth,   icon: TrendingUp,  color: 'text-violet-600 bg-violet-50' },
-        ].map(({ label, value, icon: Icon, color }) => (
+          { label: 'Total Users',      value: totalUsers,     icon: 'fi fi-rr-users',       color: 'text-blue-600 bg-blue-50' },
+          { label: 'Active Accounts',  value: activeUsers,    icon: 'fi fi-rr-user-check',   color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Restricted',       value: suspendedUsers, icon: 'fi fi-rr-shield-exclamation',   color: 'text-rose-600 bg-rose-50' },
+          { label: 'New This Month',   value: newThisMonth,   icon: 'fi fi-rr-chart-line-up',  color: 'text-violet-600 bg-violet-50' },
+        ].map(({ label, value, icon, color }) => (
           <div key={label} className="bg-white border border-neutral-200 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-            <div className={`p-2.5 rounded-xl ${color} shrink-0`}>
-              <Icon className="w-5 h-5" />
+            <div className={`${color.split(" ")[0]} shrink-0 flex items-center justify-center`}>
+              <i className={`${icon} text-3xl`} />
             </div>
             <div className="min-w-0">
               <p className="text-2xl font-black text-neutral-900 truncate">{value}</p>
@@ -650,7 +616,7 @@ export default function UsersPage() {
         <div className="p-4 border-b border-neutral-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           {/* Search */}
           <div className="relative flex-1 max-w-md w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <i className="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400 flex items-center justify-center shrink-0" />
             <input
               id="user-search"
               type="text"
@@ -674,7 +640,7 @@ export default function UsersPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${showFilters ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'}`}
             >
-              <Filter className="w-4 h-4" /> Filters
+              <i className="fi fi-rr-settings-sliders text-lg flex items-center justify-center shrink-0" /> Filters
             </button>
           </div>
         </div>
@@ -718,14 +684,14 @@ export default function UsersPage() {
                 id="bulk-suspend-btn"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-lg transition-colors"
               >
-                <UserX className="w-3.5 h-3.5" /> Suspend All
+                <i className="fi fi-rr-delete-user w-3.5 h-3.5 flex items-center justify-center shrink-0" /> Suspend All
               </button>
               <button
                 onClick={handleBulkDelete}
                 id="bulk-delete-btn"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition-colors"
               >
-                <Trash2 className="w-3.5 h-3.5" /> Delete All
+                <i className="fi fi-rr-trash w-3.5 h-3.5 flex items-center justify-center shrink-0" /> Delete All
               </button>
               <button
                 onClick={() => setSelected(new Set())}
@@ -785,7 +751,7 @@ export default function UsersPage() {
                   <td colSpan={8} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center">
-                        <Users className="w-7 h-7 text-neutral-400" />
+                        <i className="fi fi-rr-users text-lg text-neutral-400 flex items-center justify-center shrink-0" />
                       </div>
                       <p className="text-neutral-700 font-semibold">No users found</p>
                       <p className="text-neutral-400 text-sm">Try adjusting your search or filters.</p>
@@ -821,7 +787,7 @@ export default function UsersPage() {
                           <p className="font-semibold text-neutral-900 truncate max-w-[160px]">{user.name}</p>
                           {!user.verifiedEmail && (
                             <span title="Unverified email" className="text-orange-400">
-                              <Mail className="w-3 h-3" />
+                              <i className="fi fi-rr-envelope text-lg flex items-center justify-center shrink-0" />
                             </span>
                           )}
                         </div>
@@ -843,7 +809,7 @@ export default function UsersPage() {
                   {/* Orders */}
                   <td className="px-4 py-3.5 text-right">
                     <span className="flex items-center justify-end gap-1.5 text-neutral-700 font-semibold">
-                      <ShoppingBag className="w-3.5 h-3.5 text-neutral-300" />
+                      <i className="fi fi-rr-shopping-bag w-3.5 h-3.5 text-neutral-300 flex items-center justify-center shrink-0" />
                       {user.orderCount}
                     </span>
                   </td>
@@ -851,7 +817,7 @@ export default function UsersPage() {
                   {/* Spent */}
                   <td className="px-4 py-3.5 text-right">
                     <span className="flex items-center justify-end gap-1.5 font-bold text-neutral-900">
-                      <DollarSign className="w-3.5 h-3.5 text-neutral-300" />
+                      <i className="fi fi-rr-dollar w-3.5 h-3.5 text-neutral-300 flex items-center justify-center shrink-0" />
                       {user.totalSpent > 0 ? user.totalSpent.toLocaleString('en-US', { minimumFractionDigits: 0 }) : '—'}
                     </span>
                   </td>
@@ -869,7 +835,7 @@ export default function UsersPage() {
                         className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors opacity-0 group-hover:opacity-100"
                         title="View profile"
                       >
-                        <Eye className="w-4 h-4" />
+                        <i className="fi fi-rr-eye text-lg flex items-center justify-center shrink-0" />
                       </button>
                       <RowMenu
                         user={user}
@@ -904,7 +870,7 @@ export default function UsersPage() {
               disabled={page === 1}
               className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <i className="fi fi-rr-angle-left text-lg flex items-center justify-center shrink-0" />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
               <button
@@ -921,7 +887,7 @@ export default function UsersPage() {
               disabled={page === totalPages || totalPages === 0}
               className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              <ChevronRight className="w-4 h-4" />
+              <i className="fi fi-rr-angle-right text-lg flex items-center justify-center shrink-0" />
             </button>
           </div>
         </div>

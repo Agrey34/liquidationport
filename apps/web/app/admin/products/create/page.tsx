@@ -1,22 +1,10 @@
+
 'use client';
 
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Upload,
-  X,
-  Plus,
-  Trash2,
-  Package,
-  Tag,
-  DollarSign,
-  Boxes,
-  FileText,
-  ImageIcon,
-  AlertCircle,
-  ChevronDown,
-} from 'lucide-react';
+import Image from 'next/image';
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -48,10 +36,10 @@ const CONDITIONS = ['New', 'Like New', 'Good', 'Fair', 'Poor / Parts Only'];
 
 // ─── Form Section Wrapper ─────────────────────────────────────────────────────
 
-function Section({ title, description, icon: Icon, children }: {
+function Section({ title, description, icon, children }: {
   title: string;
   description: string;
-  icon: React.FC<{ className?: string }>;
+  icon: string;
   children: React.ReactNode;
 }) {
   return (
@@ -59,7 +47,7 @@ function Section({ title, description, icon: Icon, children }: {
       <div className="px-6 py-5 border-b border-neutral-100">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600">
-            <Icon className="w-4 h-4" />
+            <i className={`${icon} w-4 h-4 flex items-center justify-center`} />
           </div>
           <div>
             <h3 className="font-bold text-neutral-900">{title}</h3>
@@ -205,7 +193,7 @@ export default function CreateProductPage() {
             href="/admin/products"
             className="p-2 rounded-xl border border-neutral-200 hover:bg-neutral-50 text-neutral-500 hover:text-neutral-900 transition-all"
           >
-            <ArrowLeft className="w-4 h-4" />
+            <i className="fi fi-rr-arrow-small-left text-lg flex items-center justify-center shrink-0" />
           </Link>
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Add New Pallet</h2>
@@ -239,7 +227,7 @@ export default function CreateProductPage() {
         <div className="lg:col-span-2 space-y-6">
 
           {/* Basic Info */}
-          <Section title="Basic Information" description="Name, description, and categorisation." icon={FileText}>
+          <Section title="Basic Information" description="Name, description, and categorisation." icon={'fi fi-rr-document'}>
             <div className="space-y-4">
               <Field label="Product / Pallet Name" required hint="Be descriptive — include retailer, category, and unit count.">
                 <input id="product-name" type="text" value={name} onChange={e => setName(e.target.value)}
@@ -254,7 +242,7 @@ export default function CreateProductPage() {
                       <option value="" disabled>Select category…</option>
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                    <i className="fi fi-rr-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400 pointer-events-none flex items-center justify-center shrink-0" />
                   </div>
                 </Field>
                 <Field label="Condition" required>
@@ -263,7 +251,7 @@ export default function CreateProductPage() {
                       <option value="" disabled>Select condition…</option>
                       {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+                    <i className="fi fi-rr-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400 pointer-events-none flex items-center justify-center shrink-0" />
                   </div>
                 </Field>
               </div>
@@ -403,7 +391,7 @@ export default function CreateProductPage() {
                                   className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-rose-50 text-neutral-300 hover:text-rose-500 transition-all"
                                   title="Remove row"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <i className="fi fi-rr-trash w-3.5 h-3.5 flex items-center justify-center shrink-0" />
                                 </button>
                               </td>
                             </tr>
@@ -442,7 +430,7 @@ export default function CreateProductPage() {
                       onClick={addManifestRow}
                       className="flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-neutral-900 transition-colors"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <i className="fi fi-rr-plus w-3.5 h-3.5 flex items-center justify-center shrink-0" />
                       Add Item
                     </button>
                   </div>
@@ -466,7 +454,7 @@ export default function CreateProductPage() {
           </Section>
 
           {/* Images */}
-          <Section title="Media" description="Upload up to 8 photos. First image is the cover." icon={ImageIcon}>
+          <Section title="Media" description="Upload up to 8 photos. First image is the cover." icon={'fi fi-rr-picture'}>
             <div className="space-y-4">
               {/* Drag & Drop Zone */}
               <div
@@ -474,7 +462,7 @@ export default function CreateProductPage() {
                 className="border-2 border-dashed border-neutral-200 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-neutral-400 hover:bg-neutral-50 transition-all group"
               >
                 <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center mb-3 group-hover:bg-neutral-200 transition-colors">
-                  <Upload className="w-6 h-6 text-neutral-400" />
+                  <i className="fi fi-rr-upload text-lg text-neutral-400 flex items-center justify-center shrink-0" />
                 </div>
                 <p className="text-sm font-semibold text-neutral-700">Click to upload images</p>
                 <p className="text-xs text-neutral-400 mt-1">PNG, JPG, WEBP — max 8 images</p>
@@ -487,7 +475,7 @@ export default function CreateProductPage() {
                   {images.map((src, i) => (
                     <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={src} alt={`Product image ${i + 1}`} className="w-full h-full object-cover" />
+                      <Image fill={true} src={src} alt={`Product image ${i + 1}`} className="object-cover" />
                       {i === 0 && (
                         <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">Cover</span>
                       )}
@@ -496,7 +484,7 @@ export default function CreateProductPage() {
                         onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
                         className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500"
                       >
-                        <X className="w-3 h-3" />
+                        <i className="fi fi-rr-cross-small text-lg flex items-center justify-center shrink-0" />
                       </button>
                     </div>
                   ))}
@@ -506,7 +494,7 @@ export default function CreateProductPage() {
           </Section>
 
           {/* Variants */}
-          <Section title="Product Variants" description="Optional: add size, grade, or lot-size variants." icon={Boxes}>
+          <Section title="Product Variants" description="Optional: add size, grade, or lot-size variants." icon={'fi fi-rr-boxes'}>
             <div className="space-y-3">
               {variants.length === 0 ? (
                 <div className="text-center py-6 border border-dashed border-neutral-200 rounded-xl">
@@ -518,7 +506,7 @@ export default function CreateProductPage() {
                   <div className="col-span-4 flex justify-between items-center mb-1">
                     <span className="text-xs font-semibold text-neutral-600 uppercase tracking-wider">Variant {i + 1}</span>
                     <button type="button" onClick={() => removeVariant(v.id)} className="text-rose-500 hover:text-rose-700 transition-colors">
-                      <Trash2 className="w-4 h-4" />
+                      <i className="fi fi-rr-trash text-lg flex items-center justify-center shrink-0" />
                     </button>
                   </div>
                   <input
@@ -548,7 +536,7 @@ export default function CreateProductPage() {
                 onClick={addVariant}
                 className="flex items-center gap-2 text-sm font-semibold text-neutral-700 hover:text-neutral-900 border border-dashed border-neutral-200 hover:border-neutral-400 px-4 py-3 rounded-xl w-full justify-center transition-all hover:bg-neutral-50"
               >
-                <Plus className="w-4 h-4" />
+                <i className="fi fi-rr-plus text-lg flex items-center justify-center shrink-0" />
                 Add Variant
               </button>
             </div>
@@ -589,7 +577,7 @@ export default function CreateProductPage() {
           {/* Pricing */}
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-neutral-500" />
+              <i className="fi fi-rr-dollar text-lg text-neutral-500 flex items-center justify-center shrink-0" />
               <h3 className="font-bold text-neutral-900">Pricing</h3>
             </div>
             <div className="p-5 space-y-4">
@@ -622,7 +610,7 @@ export default function CreateProductPage() {
           {/* Inventory */}
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100 flex items-center gap-2">
-              <Package className="w-4 h-4 text-neutral-500" />
+              <i className="fi fi-rr-box text-lg text-neutral-500 flex items-center justify-center shrink-0" />
               <h3 className="font-bold text-neutral-900">Inventory</h3>
             </div>
             <div className="p-5 space-y-4">
@@ -644,7 +632,7 @@ export default function CreateProductPage() {
           {/* Tags */}
           <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100 flex items-center gap-2">
-              <Tag className="w-4 h-4 text-neutral-500" />
+              <i className="fi fi-rr-tags text-lg text-neutral-500 flex items-center justify-center shrink-0" />
               <h3 className="font-bold text-neutral-900">Tags</h3>
             </div>
             <div className="p-5 space-y-3">
@@ -660,7 +648,7 @@ export default function CreateProductPage() {
                 />
                 <button type="button" onClick={addTag}
                   className="px-3 py-2.5 bg-neutral-900 text-white rounded-xl hover:bg-neutral-700 transition-colors">
-                  <Plus className="w-4 h-4" />
+                  <i className="fi fi-rr-plus text-lg flex items-center justify-center shrink-0" />
                 </button>
               </div>
               {tags.length > 0 && (
@@ -669,7 +657,7 @@ export default function CreateProductPage() {
                     <span key={t} className="inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-700 text-xs font-semibold px-2.5 py-1 rounded-full">
                       {t}
                       <button type="button" onClick={() => removeTag(t)} className="hover:text-rose-500 transition-colors">
-                        <X className="w-3 h-3" />
+                        <i className="fi fi-rr-cross-small text-lg flex items-center justify-center shrink-0" />
                       </button>
                     </span>
                   ))}
@@ -681,7 +669,7 @@ export default function CreateProductPage() {
 
           {/* Notice */}
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <i className="fi fi-rr-info text-lg text-amber-600 shrink-0 mt-0.5 flex items-center justify-center shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">
               Prices are locked on the backend at order creation. The frontend always fetches the server-side price — buyers cannot manipulate it.
             </p>

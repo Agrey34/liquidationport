@@ -42,17 +42,17 @@ export interface ManifestRow {
 interface SectionProps {
   title: string;
   description: string;
-  icon: React.FC<{ className?: string }>;
+  icon: string;
   children: React.ReactNode;
 }
 
-export function Section({ title, description, icon: Icon, children }: SectionProps) {
+export function Section({ title, description, icon, children }: SectionProps) {
   return (
     <div className="bg-white border border-neutral-200 rounded-2xl shadow-sm overflow-hidden">
       <div className="px-6 py-5 border-b border-neutral-100">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-neutral-100 rounded-xl text-neutral-600">
-            <Icon className="w-4 h-4" />
+            <i className={`${icon} w-4 h-4 flex items-center justify-center`} />
           </div>
           <div>
             <h3 className="font-bold text-neutral-900">{title}</h3>

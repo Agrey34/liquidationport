@@ -1,14 +1,6 @@
+
 import React from 'react';
-import { 
-  DollarSign, 
-  Package, 
-  Users, 
-  TrendingUp, 
-  ArrowUpRight,
-  ArrowDownRight,
-  CreditCard,
-  ShoppingBag
-} from 'lucide-react';
+
 
 const STATS = [
   { 
@@ -16,28 +8,28 @@ const STATS = [
     value: '$45,232.89', 
     trend: '+20.1%', 
     isPositive: true,
-    icon: DollarSign 
+    icon: 'fi fi-rr-dollar' 
   },
   { 
     title: 'Active Pallets', 
     value: '+573', 
     trend: '+12.5%', 
     isPositive: true,
-    icon: Package 
+    icon: 'fi fi-rr-box' 
   },
   { 
     title: 'New B2B Users', 
     value: '+2,350', 
     trend: '-4.2%', 
     isPositive: false,
-    icon: Users 
+    icon: 'fi fi-rr-users' 
   },
   { 
     title: 'Pending Orders', 
     value: '142', 
     trend: '+8.1%', 
     isPositive: true,
-    icon: ShoppingBag 
+    icon: 'fi fi-rr-shopping-bag' 
   }
 ];
 
@@ -62,15 +54,14 @@ export default function AdminDashboardPage() {
       {/* KPI Stats Grid */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {STATS.map((stat, i) => {
-          const Icon = stat.icon;
           return (
             <div key={i} className="bg-white rounded-2xl p-4 lg:p-6 border border-neutral-200 shadow-sm flex flex-col justify-between min-w-0">
               <div className="flex justify-between items-start mb-3">
-                <div className="p-1.5 lg:p-2 bg-neutral-100 text-neutral-600 rounded-lg shrink-0">
-                  <Icon className="w-4 h-4 lg:w-5 lg:h-5" />
+                <div className="text-neutral-600 shrink-0">
+                  <i className={`${stat.icon} text-2xl lg:text-3xl flex items-center justify-center`} />
                 </div>
                 <div className={`flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded-full shrink-0 ${stat.isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                  {stat.isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                  {stat.isPositive ? <i className="fi fi-rr-arrow-up-right text-lg flex items-center justify-center shrink-0" /> : <i className="fi fi-rr-arrow-down-right text-lg flex items-center justify-center shrink-0" />}
                   <span className="hidden sm:inline">{stat.trend}</span>
                 </div>
               </div>
@@ -132,11 +123,11 @@ export default function AdminDashboardPage() {
         {/* Action Panel */}
         <div className="bg-neutral-900 text-white rounded-2xl p-6 shadow-md flex flex-col justify-between overflow-hidden relative">
           {/* Decorative backdrop */}
-          <TrendingUp className="absolute -bottom-6 -right-6 w-48 h-48 text-white/5" />
+          <i className="fi fi-rr-chart-line-up absolute -bottom-6 -right-6 text-lg text-white/5 flex items-center justify-center shrink-0" />
           
           <div>
             <div className="p-3 bg-white/10 w-fit rounded-xl backdrop-blur-md mb-6">
-              <CreditCard className="w-6 h-6 text-white" />
+              <i className="fi fi-rr-credit-card text-lg text-white flex items-center justify-center shrink-0" />
             </div>
             <h3 className="text-xl font-bold mb-2">Pending Withdrawals</h3>
             <p className="text-white/60 text-sm leading-relaxed mb-6">

@@ -1,30 +1,9 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import {
-  Package,
-  Plus,
-  Search,
-  Filter,
-  MoreHorizontal,
-  Edit,
-  Trash2,
-  Eye,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  ChevronLeft,
-  ChevronRight,
-  Tag,
-  AlertTriangle,
-  CheckCircle2,
-  XCircle,
-  TrendingUp,
-  DollarSign,
-  Boxes,
-  BarChart3,
-} from 'lucide-react';
+
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -67,11 +46,11 @@ const PAGE_SIZE = 8;
 
 // ─── Helper Components ────────────────────────────────────────────────────────
 
-const statusConfig: Record<ProductStatus, { color: string; icon: React.FC<{ className?: string }> }> = {
-  'Active':       { color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
-  'Draft':        { color: 'bg-amber-100 text-amber-700',     icon: AlertTriangle },
-  'Out of Stock': { color: 'bg-rose-100 text-rose-700',       icon: XCircle },
-  'Archived':     { color: 'bg-neutral-100 text-neutral-500', icon: Package },
+const statusConfig: Record<ProductStatus, { color: string; icon: string }> = {
+  'Active':       { color: 'bg-emerald-100 text-emerald-700', icon: 'fi fi-rr-check-circle' },
+  'Draft':        { color: 'bg-amber-100 text-amber-700',     icon: 'fi fi-rr-triangle-warning' },
+  'Out of Stock': { color: 'bg-rose-100 text-rose-700',       icon: 'fi fi-rr-cross-circle' },
+  'Archived':     { color: 'bg-neutral-100 text-neutral-500', icon: 'fi fi-rr-box' },
 };
 
 const avatarColors: Record<string, string> = {
@@ -82,20 +61,20 @@ const avatarColors: Record<string, string> = {
 };
 
 function StatusBadge({ status }: { status: ProductStatus }) {
-  const { color, icon: Icon } = statusConfig[status];
+  const { color, icon: IconClass } = statusConfig[status];
   return (
     <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${color}`}>
-      <Icon className="w-3 h-3" />
+      <i className={`${IconClass} w-3 h-3 flex items-center justify-center`} />
       {status}
     </span>
   );
 }
 
 function SortIcon({ col, sort }: { col: SortKey; sort: { key: SortKey; dir: SortDir } }) {
-  if (sort.key !== col) return <ArrowUpDown className="w-3.5 h-3.5 text-neutral-300 ml-1" />;
+  if (sort.key !== col) return <i className="fi fi-rr-arrows-up-down w-3.5 h-3.5 text-neutral-300 ml-1 flex items-center justify-center shrink-0" />;
   return sort.dir === 'asc'
-    ? <ArrowUp className="w-3.5 h-3.5 text-neutral-900 ml-1" />
-    : <ArrowDown className="w-3.5 h-3.5 text-neutral-900 ml-1" />;
+    ? <i className="fi fi-rr-arrow-up w-3.5 h-3.5 text-neutral-900 ml-1 flex items-center justify-center shrink-0" />
+    : <i className="fi fi-rr-arrow-down w-3.5 h-3.5 text-neutral-900 ml-1 flex items-center justify-center shrink-0" />;
 }
 
 // ─── Row Action Menu ──────────────────────────────────────────────────────────
@@ -108,7 +87,7 @@ function RowMenu({ productId, onDelete }: { productId: string; onDelete: (id: st
         onClick={() => setOpen(!open)}
         className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors"
       >
-        <MoreHorizontal className="w-4 h-4" />
+        <i className="fi fi-rr-menu-dots text-lg flex items-center justify-center shrink-0" />
       </button>
       {open && (
         <>
@@ -119,21 +98,21 @@ function RowMenu({ productId, onDelete }: { productId: string; onDelete: (id: st
               className="flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
               onClick={() => setOpen(false)}
             >
-              <Eye className="w-4 h-4 text-neutral-400" /> View Details
+              <i className="fi fi-rr-eye text-lg text-neutral-400 flex items-center justify-center shrink-0" /> View Details
             </Link>
             <Link
               href={`/admin/products/${productId}/edit`}
               className="flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
               onClick={() => setOpen(false)}
             >
-              <Edit className="w-4 h-4 text-neutral-400" /> Edit Product
+              <i className="fi fi-rr-pencil text-lg text-neutral-400 flex items-center justify-center shrink-0" /> Edit Product
             </Link>
             <div className="my-1 border-t border-neutral-100" />
             <button
               onClick={() => { onDelete(productId); setOpen(false); }}
               className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors"
             >
-              <Trash2 className="w-4 h-4" /> Delete
+              <i className="fi fi-rr-trash text-lg flex items-center justify-center shrink-0" /> Delete
             </button>
           </div>
         </>
@@ -221,7 +200,7 @@ export default function ProductsPage() {
           id="add-product-btn"
           className="inline-flex items-center gap-2 bg-neutral-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-700 transition-colors shadow-sm shrink-0"
         >
-          <Plus className="w-4 h-4" />
+          <i className="fi fi-rr-plus text-lg flex items-center justify-center shrink-0" />
           Add New Pallet
         </Link>
       </div>
@@ -229,14 +208,14 @@ export default function ProductsPage() {
       {/* ── KPI Stats ───────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Products',  value: totalProducts,                       icon: Boxes,      color: 'text-blue-600 bg-blue-50' },
-          { label: 'Active Listings', value: activeProducts,                      icon: CheckCircle2,color:'text-emerald-600 bg-emerald-50' },
-          { label: 'Out of Stock',    value: outOfStock,                          icon: AlertTriangle, color: 'text-rose-600 bg-rose-50' },
-          { label: 'Est. Total Value',value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, icon: DollarSign, color: 'text-violet-600 bg-violet-50' },
-        ].map(({ label, value, icon: Icon, color }) => (
+          { label: 'Total Products',  value: totalProducts,                       icon: 'fi fi-rr-boxes',      color: 'text-blue-600 bg-blue-50' },
+          { label: 'Active Listings', value: activeProducts,                      icon: 'fi fi-rr-check-circle',color:'text-emerald-600 bg-emerald-50' },
+          { label: 'Out of Stock',    value: outOfStock,                          icon: 'fi fi-rr-triangle-warning', color: 'text-rose-600 bg-rose-50' },
+          { label: 'Est. Total Value',value: `$${totalValue.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, icon: 'fi fi-rr-dollar', color: 'text-violet-600 bg-violet-50' },
+        ].map(({ label, value, icon, color }) => (
           <div key={label} className="bg-white border border-neutral-200 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-            <div className={`p-2.5 rounded-xl ${color}`}>
-              <Icon className="w-5 h-5" />
+            <div className={`${color.split(" ")[0]} shrink-0 flex items-center justify-center`}>
+              <i className={`${icon} text-3xl`} />
             </div>
             <div className="min-w-0">
               <p className="text-2xl font-black text-neutral-900 truncate">{value}</p>
@@ -251,7 +230,7 @@ export default function ProductsPage() {
         <div className="p-4 border-b border-neutral-100 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
           {/* Search */}
           <div className="relative flex-1 max-w-md w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+            <i className="fi fi-rr-search absolute left-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400 flex items-center justify-center shrink-0" />
             <input
               id="product-search"
               type="text"
@@ -279,7 +258,7 @@ export default function ProductsPage() {
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${showFilters ? 'bg-neutral-900 text-white border-neutral-900' : 'bg-neutral-50 text-neutral-700 border-neutral-200 hover:bg-neutral-100'}`}
             >
-              <Filter className="w-4 h-4" />
+              <i className="fi fi-rr-settings-sliders text-lg flex items-center justify-center shrink-0" />
               Filters
             </button>
           </div>
@@ -310,7 +289,7 @@ export default function ProductsPage() {
                 onClick={handleBulkDelete}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition-colors"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <i className="fi fi-rr-trash w-3.5 h-3.5 flex items-center justify-center shrink-0" />
                 Delete Selected
               </button>
               <button
@@ -364,7 +343,7 @@ export default function ProductsPage() {
                   <td colSpan={8} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <div className="w-14 h-14 bg-neutral-100 rounded-full flex items-center justify-center">
-                        <Package className="w-7 h-7 text-neutral-400" />
+                        <i className="fi fi-rr-box text-lg text-neutral-400 flex items-center justify-center shrink-0" />
                       </div>
                       <p className="text-neutral-700 font-semibold">No products found</p>
                       <p className="text-neutral-400 text-sm">Try adjusting your search or filters.</p>
@@ -409,7 +388,7 @@ export default function ProductsPage() {
                   {/* Category */}
                   <td className="px-4 py-3.5">
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-neutral-700">
-                      <Tag className="w-3.5 h-3.5 text-neutral-400" />
+                      <i className="fi fi-rr-tags w-3.5 h-3.5 text-neutral-400 flex items-center justify-center shrink-0" />
                       {product.category}
                     </span>
                   </td>
@@ -439,7 +418,7 @@ export default function ProductsPage() {
                         className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors opacity-0 group-hover:opacity-100"
                         title="Edit"
                       >
-                        <Edit className="w-4 h-4" />
+                        <i className="fi fi-rr-pencil text-lg flex items-center justify-center shrink-0" />
                       </Link>
                       <RowMenu productId={product.id} onDelete={handleDelete} />
                     </div>
@@ -462,7 +441,7 @@ export default function ProductsPage() {
               disabled={page === 1}
               className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <i className="fi fi-rr-angle-left text-lg flex items-center justify-center shrink-0" />
             </button>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
               <button
@@ -479,7 +458,7 @@ export default function ProductsPage() {
               disabled={page === totalPages || totalPages === 0}
               className="p-2 rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              <ChevronRight className="w-4 h-4" />
+              <i className="fi fi-rr-angle-right text-lg flex items-center justify-center shrink-0" />
             </button>
           </div>
         </div>

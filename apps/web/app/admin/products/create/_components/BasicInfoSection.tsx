@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ChevronDown, FileText } from 'lucide-react';
+
 import { Section, Field, inputCls, selectCls, CATEGORIES, CONDITIONS } from './FormSection';
 
 interface Props {
@@ -25,7 +25,7 @@ export function BasicInfoSection({
     <Section
       title="Basic Information"
       description="Name, description, and categorisation."
-      icon={FileText}
+      icon={'fi fi-rr-document'}
     >
       <div className="space-y-4">
         <Field label="Product / Pallet Name" required hint="Be descriptive — include retailer, category, and unit count.">
@@ -53,7 +53,7 @@ export function BasicInfoSection({
                 <option value="" disabled>Select category…</option>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+              <i className="fi fi-rr-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400 pointer-events-none flex items-center justify-center shrink-0" />
             </div>
           </Field>
 
@@ -69,7 +69,7 @@ export function BasicInfoSection({
                 <option value="" disabled>Select condition…</option>
                 {CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" />
+              <i className="fi fi-rr-angle-down absolute right-3 top-1/2 -translate-y-1/2 text-lg text-neutral-400 pointer-events-none flex items-center justify-center shrink-0" />
             </div>
           </Field>
         </div>
