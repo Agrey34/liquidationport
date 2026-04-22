@@ -5,7 +5,27 @@
 # ============================================================
 
 # ================================
-# Environment Variables (SECURITY — NEVER COMMIT)
+# !! MOST IMPORTANT — NEVER COMMIT
+# ================================
+
+# All node_modules everywhere in the monorepo
+node_modules/
+**/node_modules/
+
+# Next.js build output & cache (ALL locations)
+.next/
+**/.next/
+out/
+**/out/
+
+# NestJS / TypeScript build output
+dist/
+**/dist/
+build/
+**/build/
+
+# ================================
+# Environment Variables (SECURITY)
 # ================================
 .env
 .env.local
@@ -21,9 +41,22 @@
 !.env.*.example
 
 # ================================
-# Node / Package Managers
+# Prisma Generated Client & Engines
 # ================================
-node_modules/
+apps/api/src/generated/
+apps/api/prisma/generated/
+apps/api/node_modules/.prisma/
+apps/api/node_modules
+
+# ================================
+# TypeScript Build Info
+# ================================
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# ================================
+# Package Manager Caches
+# ================================
 .pnp
 .pnp.js
 .yarn/cache
@@ -35,64 +68,32 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-# ================================
-# Next.js (apps/web)
-# ================================
-.next/
-apps/web/.next/
-apps/web/out/
-apps/web/next-env.d.ts
-apps/web/.vercel
-
-# ================================
-# NestJS Build Output (apps/api)
-# ================================
-apps/api/dist/
-
-# ================================
-# Prisma Generated Client (apps/api)
-# Keep: schema.prisma, migrations/
-# Ignore: generated client & binary engines
-# ================================
-apps/api/node_modules/.prisma/
-apps/api/src/generated/
-apps/api/prisma/generated/
-apps/api/**/*.d.ts.map
-
-# ================================
-# TypeScript Build Info
-# ================================
-*.tsbuildinfo
-apps/web/.next/cache/.tsbuildinfo
+*.log
 
 # ================================
 # Turbo / Monorepo Build Cache
 # ================================
 .turbo/
 .cache/
-apps/web/.next/cache/
+**/.turbo/
+**/.cache/
+
+# ================================
+# Vercel / Deployment
+# ================================
+.vercel
+**/.vercel
+.netlify
 
 # ================================
 # Testing & Coverage
 # ================================
 coverage/
-apps/api/coverage/
-apps/web/coverage/
-libs/shared/coverage/
+**/coverage/
 .nyc_output/
 *.lcov
 htmlcov/
 .coverage
-
-# ================================
-# Logs & Temp Files
-# ================================
-*.log
-*.tmp
-*.swp
-logs/
-apps/api/logs/
 
 # ================================
 # Editors & IDEs
@@ -106,12 +107,13 @@ apps/api/logs/
 *.sw?
 
 # ================================
-# System Files
+# OS Files
 # ================================
 .DS_Store
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 
 # ================================
 # Security / Credentials
@@ -124,11 +126,8 @@ Desktop.ini
 serviceAccountKey.json
 
 # ================================
-# Misc Build & Deploy Artifacts
+# Misc
 # ================================
-.vercel
-.netlify
-dist/
-build/
-out/
-
+*.tmp
+*.swp
+logs/
