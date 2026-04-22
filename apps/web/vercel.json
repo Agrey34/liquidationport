@@ -1,0 +1,6 @@
+{
+  "framework": "nextjs",
+  "installCommand": "rm -f package-lock.json && npm install",
+  "buildCommand": "next build",
+  "outputDirectory": ".next"
+}
