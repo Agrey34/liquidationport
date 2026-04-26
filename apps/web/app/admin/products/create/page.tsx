@@ -1,9 +1,10 @@
 
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { apiFetch } from '@/lib/api';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -101,7 +102,63 @@ export default function CreateProductPage() {
   const [images, setImages]           = useState<string[]>([]);
   const [manifestRows, setManifestRows] = useState<ManifestRow[]>([{ id: crypto.randomUUID(), manufacturer: '', productName: '', product: '', condition: '', upc: '', qty: '', msrp: '' }]);
   const [submitting, setSubmitting]   = useState(false);
+  const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Auto-Save to LocalStorage ─────────────────────────────────────────────
+  useEffect(() => {
+    const draft = localStorage.getItem('product-create-draft');
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.name) setName(parsed.name);
+        if (parsed.description) setDescription(parsed.description);
+        if (parsed.category) setCategory(parsed.category);
+        if (parsed.condition) setCondition(parsed.condition);
+        if (parsed.status) setStatus(parsed.status);
+        if (parsed.basePrice) setBasePrice(parsed.basePrice);
+        if (parsed.comparePrice) setComparePrice(parsed.comparePrice);
+        if (parsed.stock) setStock(parsed.stock);
+        if (parsed.sku) setSku(parsed.sku);
+        if (parsed.weight) setWeight(parsed.weight);
+        if (parsed.tags) setTags(parsed.tags);
+        if (parsed.variants) setVariants(parsed.variants);
+        if (parsed.images) setImages(parsed.images);
+        if (parsed.manifestRows && parsed.manifestRows.length > 0) setManifestRows(parsed.manifestRows);
+      } catch (e) {
+        console.error('Failed to parse draft', e);
+      }
+    }
+    setIsDraftLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isDraftLoaded) return;
+    
+    const hasChanges = name || description || category || condition || basePrice || comparePrice || stock || sku || weight || tags.length > 0 || variants.length > 0 || manifestRows.length > 1 || manifestRows[0].productName;
+    if (!hasChanges) {
+      localStorage.removeItem('product-create-draft');
+      return;
+    }
+    
+    const draft = {
+      name, description, category, condition, status, basePrice, comparePrice,
+      stock, sku, weight, tags, variants, images, manifestRows
+    };
+    localStorage.setItem('product-create-draft', JSON.stringify(draft));
+  }, [name, description, category, condition, status, basePrice, comparePrice, stock, sku, weight, tags, variants, images, manifestRows, isDraftLoaded]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasChanges = name || description || category || basePrice;
+      if (hasChanges && !submitting) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [name, description, category, basePrice, submitting]);
 
   // ── Tags ──────────────────────────────────────────────────────────────────
 
@@ -177,10 +234,28 @@ export default function CreateProductPage() {
   const handleSubmit = async (e: React.FormEvent, saveStatus: string) => {
     e.preventDefault();
     setSubmitting(true);
-    // TODO: POST to /api/v1/products via NestJS
-    await new Promise(r => setTimeout(r, 1200));
-    setSubmitting(false);
-    alert(`Product saved as "${saveStatus}" (mock — backend not connected yet)`);
+    
+    try {
+      const payload = {
+        name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        description,
+        price: parseFloat(basePrice) || 0,
+        stock: parseInt(stock) || 0,
+      };
+
+      await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+
+      localStorage.removeItem('product-create-draft');
+      alert(`Product saved as "${saveStatus}" successfully!`);
+    } catch (err: unknown) {
+      alert(`Error saving product: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

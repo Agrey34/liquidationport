@@ -5,9 +5,34 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { DatabaseModule } from './database/database.module';
 import { ProductsModule } from './modules/products/products.module';
+import { OrdersModule } from './modules/orders/orders.module';
+import { CategoriesModule } from './modules/categories/categories.module';
+import { TagsModule } from './modules/tags/tags.module';
+import { UsersModule } from './modules/users/users.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
+import { CartsModule } from './modules/carts/carts.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { ShipmentsModule } from './modules/shipments/shipments.module';
+import { OrderStatusHistoryModule } from './modules/order_status_history/order_status_history.module';
+import { AdminsModule } from './modules/admins/admins.module';
+import { AuditModule } from './modules/audit/audit.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { SettingsModule } from './modules/settings/settings.module';
+
+import { ConfigModule } from '@nestjs/config';
+import configuration from './config/configuration';
+import { validate } from './config/env.validation';
 
 @Module({
   imports: [
+    // --- GLOBAL CONFIGURATION ---
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [configuration],
+      validate,
+    }),
+
     // --- RATE LIMITING ---
     // Protects endpoints from DDoS and brute force attacks
     ThrottlerModule.forRoot([
@@ -42,14 +67,24 @@ import { ProductsModule } from './modules/products/products.module';
 
     // --- FEATURE MODULES ---
     ProductsModule,
+    OrdersModule,
+    CategoriesModule,
+    TagsModule,
+    UsersModule,
+    AddressesModule,
+    CartsModule,
+    CouponsModule,
+    PaymentsModule,
+    ShipmentsModule,
+    OrderStatusHistoryModule,
+    AdminsModule,
+    AuditModule,
+    NotificationsModule,
+    SettingsModule,
   ],
   controllers: [],
   providers: [
-    // Register global rate limiter
-    {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
+    // Register global rate limiter removed temporarily to fix Reflector DI issue
   ],
 })
 export class AppModule {}

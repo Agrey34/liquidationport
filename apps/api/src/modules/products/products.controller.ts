@@ -5,8 +5,6 @@ import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductQueryDto } from './dto/product-query.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { SkipThrottle } from '@nestjs/throttler';
-import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
-
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
@@ -16,15 +14,11 @@ export class ProductsController {
   // ==========================================
 
   // Apply cache via Interceptor caching the whole response payload transparently
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(300000) // 5 Minutes
   @Get()
   async findAll(@Query() query: ProductQueryDto) {
     return this.productsService.findAll(query);
   }
 
-  @UseInterceptors(CacheInterceptor)
-  @CacheTTL(300000) // 5 Minutes
   @Get(':slug')
   async findOne(@Param('slug') slug: string) {
     return this.productsService.findOneBySlug(slug);

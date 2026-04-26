@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import { logout } from '../../auth/actions';
 
 const NOTIFICATIONS = [
   { id: 1, type: 'order', title: 'New Order: ORD-2904', time: '5m ago', read: false },
@@ -13,7 +14,9 @@ const NOTIFICATIONS = [
 export default function AdminHeader() {
   const pathname = usePathname();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   
   // Format the pathname for the breadcrumb
   const title = pathname === '/admin' 
@@ -25,6 +28,9 @@ export default function AdminHeader() {
      function handleClickOutside(event: MouseEvent) {
        if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
          setShowNotifications(false);
+       }
+       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+         setShowProfileMenu(false);
        }
      }
      document.addEventListener('mousedown', handleClickOutside);
@@ -102,15 +108,39 @@ export default function AdminHeader() {
           <div className="h-6 gap-0 border-l border-neutral-200 mx-1"></div>
           
           {/* Admin Avatar mockup */}
-          <button className="flex items-center gap-2 hover:bg-neutral-50 p-1.5 pr-3 rounded-full transition-colors border border-transparent hover:border-neutral-200">
-            <div className="w-8 h-8 rounded-full bg-neutral-900 text-white flex items-center justify-center">
-               <i className="fi fi-rr-user mt-1" />
-            </div>
-            <div className="hidden md:block text-left">
-               <p className="text-sm font-bold text-neutral-900 leading-none">Super Admin</p>
-               <p className="text-xs text-neutral-500 mt-0.5 leading-none">admin@liqport.com</p>
-            </div>
-          </button>
+          <div className="relative" ref={profileRef}>
+            <button 
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="flex items-center gap-2 hover:bg-neutral-50 p-1.5 pr-3 rounded-full transition-colors border border-transparent hover:border-neutral-200"
+            >
+              <div className="w-8 h-8 rounded-full bg-neutral-900 text-white flex items-center justify-center">
+                 <i className="fi fi-rr-user mt-1" />
+              </div>
+              <div className="hidden md:block text-left">
+                 <p className="text-sm font-bold text-neutral-900 leading-none">Super Admin</p>
+                 <p className="text-xs text-neutral-500 mt-0.5 leading-none">admin@liqport.com</p>
+              </div>
+            </button>
+
+            {showProfileMenu && (
+              <div className="absolute top-full right-0 mt-3 w-48 bg-white border border-neutral-200 shadow-xl rounded-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="p-2 flex flex-col">
+                  <button className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50 rounded-lg transition-colors text-left">
+                    <i className="fi fi-rr-settings text-neutral-400"></i>
+                    Settings
+                  </button>
+                  <div className="h-px bg-neutral-100 my-1"></div>
+                  <button 
+                    onClick={() => logout()}
+                    className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left"
+                  >
+                    <i className="fi fi-rr-sign-out-alt"></i>
+                    Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </header>

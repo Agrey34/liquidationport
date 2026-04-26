@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@flaticon/flaticon-uicons": "^3.3.1",
+    "@supabase/ssr": "^0.10.2",
+    "@supabase/supabase-js": "^2.104.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.577.0",
     "next": "^16.2.0",
@@ -27,15 +29,15 @@
     "typescript": "^5"
   },
   "optionalDependencies": {
-    "lightningcss-linux-x64-gnu": "*",
-    "lightningcss-linux-arm64-gnu": "*",
-    "lightningcss-darwin-x64": "*",
-    "lightningcss-darwin-arm64": "*",
-    "lightningcss-win32-x64-msvc": "*",
-    "@tailwindcss/oxide-linux-x64-gnu": "*",
-    "@tailwindcss/oxide-linux-arm64-gnu": "*",
-    "@tailwindcss/oxide-darwin-x64": "*",
     "@tailwindcss/oxide-darwin-arm64": "*",
-    "@tailwindcss/oxide-win32-x64-msvc": "*"
+    "@tailwindcss/oxide-darwin-x64": "*",
+    "@tailwindcss/oxide-linux-arm64-gnu": "*",
+    "@tailwindcss/oxide-linux-x64-gnu": "*",
+    "@tailwindcss/oxide-win32-x64-msvc": "*",
+    "lightningcss-darwin-arm64": "*",
+    "lightningcss-darwin-x64": "*",
+    "lightningcss-linux-arm64-gnu": "*",
+    "lightningcss-linux-x64-gnu": "*",
+    "lightningcss-win32-x64-msvc": "*"
   }
 }

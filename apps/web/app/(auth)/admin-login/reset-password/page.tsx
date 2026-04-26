@@ -1,95 +1,96 @@
-'use client';
+'use client'
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { updatePassword } from '../../../auth/actions';
 
 export default function ResetPasswordPage() {
-  const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    
+    const formData = new FormData(e.currentTarget);
+    const result = await updatePassword(formData);
+    
+    if (result?.error) {
+      setError(result.error);
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4 selection:bg-neutral-900 selection:text-white">
-      <div className="w-full max-w-[400px]">
-        {/* Brand */}
-        <div className="flex flex-col items-center justify-center mb-10 animate-in fade-in slide-in-from-bottom-2 duration-300">
-           <div className="w-14 h-14 bg-neutral-900 text-white flex items-center justify-center rounded-2xl shadow-xl text-2xl font-black mb-4">
-              LP
-           </div>
-           <h1 className="text-2xl font-black tracking-tight text-neutral-900">Create New Password</h1>
-           <p className="text-sm text-neutral-500 font-semibold tracking-wide">SECURE YOUR ADMIN ACCOUNT</p>
-        </div>
+    <div className="min-h-screen bg-neutral-100 flex items-center justify-center p-4 font-sans text-black">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-[450px]"
+      >
+        <div className="bg-white p-8 w-full rounded-[20px] shadow-sm flex flex-col gap-2.5">
+          <div className="mb-4 text-center">
+            <h1 className="text-2xl font-bold text-[#151717]">Create New Password</h1>
+            <p className="text-neutral-500 text-sm mt-1 leading-relaxed">
+              Your identity has been verified. Please enter your new password below.
+            </p>
+          </div>
 
-        {/* Card */}
-        <div className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-neutral-100 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
-           <div className="p-8 space-y-6">
-              
-              <div className="space-y-4">
-                 <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-neutral-900">New Password</label>
-                    <div className="relative">
-                       <i className="fi fi-rr-lock absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 mt-0.5" />
-                       <input 
-                         type={showPassword ? 'text' : 'password'} 
-                         placeholder="••••••••" 
-                         className="w-full pl-11 pr-12 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:bg-white text-sm transition-all tracking-widest font-mono"
-                       />
-                       <button 
-                         type="button"
-                         onClick={() => setShowPassword(!showPassword)}
-                         className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 transition-colors mt-0.5"
-                       >
-                         {showPassword ? <i className="fi fi-rr-eye-crossed" /> : <i className="fi fi-rr-eye" />}
-                       </button>
-                    </div>
-                 </div>
+          {error && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="bg-red-50 border border-red-200 rounded-xl p-3 mb-2 flex items-center"
+            >
+              <span className="text-red-600 text-sm font-medium">{error}</span>
+            </motion.div>
+          )}
 
-                 <div className="space-y-1.5">
-                    <label className="text-sm font-bold text-neutral-900">Confirm New Password</label>
-                    <div className="relative">
-                       <i className="fi fi-rr-lock absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 mt-0.5" />
-                       <input 
-                         type={showConfirmPassword ? 'text' : 'password'} 
-                         placeholder="••••••••" 
-                         className="w-full pl-11 pr-12 py-3 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:bg-white text-sm transition-all tracking-widest font-mono"
-                       />
-                       <button 
-                         type="button"
-                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                         className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-900 transition-colors mt-0.5"
-                       >
-                         {showConfirmPassword ? <i className="fi fi-rr-eye-crossed" /> : <i className="fi fi-rr-eye" />}
-                       </button>
-                    </div>
-                 </div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+            <div className="flex flex-col gap-1">
+              <label className="text-[#151717] font-semibold text-sm">New Password</label>
+              <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center pl-3 transition-colors duration-200 focus-within:border-[#2d79f3]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20" fill="#a0a0a0"><path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path><path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path></svg>        
+                <input
+                  name="password"
+                  required
+                  placeholder="Min. 8 characters"
+                  className="ml-2.5 rounded-[10px] border-none w-full h-full focus:outline-none bg-transparent text-sm placeholder:text-neutral-400 text-black"
+                  type="password"
+                />
               </div>
+            </div>
 
-              {/* Password Requirements */}
-              <div className="bg-neutral-50 p-4 rounded-xl space-y-2 border border-neutral-100">
-                 <p className="text-xs font-bold text-neutral-700">Password Requirements:</p>
-                 <ul className="text-xs text-neutral-500 space-y-1 font-medium">
-                    <li className="flex items-center gap-2"><i className="fi fi-rr-check text-emerald-500" /> Minimum 12 characters</li>
-                    <li className="flex items-center gap-2"><i className="fi fi-rr-check text-neutral-300" /> At least one uppercase letter</li>
-                    <li className="flex items-center gap-2"><i className="fi fi-rr-check text-neutral-300" /> At least one special character</li>
-                 </ul>
+            <div className="flex flex-col gap-1">
+              <label className="text-[#151717] font-semibold text-sm">Confirm New Password</label>
+              <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center pl-3 transition-colors duration-200 focus-within:border-[#2d79f3]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" viewBox="-64 0 512 512" height="20" fill="#a0a0a0"><path d="m336 512h-288c-26.453125 0-48-21.523438-48-48v-224c0-26.476562 21.546875-48 48-48h288c26.453125 0 48 21.523438 48 48v224c0 26.476562-21.546875 48-48 48zm-288-288c-8.8125 0-16 7.167969-16 16v224c0 8.832031 7.1875 16 16 16h288c8.8125 0 16-7.167969 16-16v-224c0-8.832031-7.1875-16-16-16zm0 0"></path><path d="m304 224c-8.832031 0-16-7.167969-16-16v-80c0-52.929688-43.070312-96-96-96s-96 43.070312-96 96v80c0 8.832031-7.167969 16-16 16s-16-7.167969-16-16v-80c0-70.59375 57.40625-128 128-128s128 57.40625 128 128v80c0 8.832031-7.167969 16-16 16zm0 0"></path></svg>        
+                <input
+                  name="confirmPassword"
+                  required
+                  placeholder="Repeat new password"
+                  className="ml-2.5 rounded-[10px] border-none w-full h-full focus:outline-none bg-transparent text-sm placeholder:text-neutral-400 text-black"
+                  type="password"
+                />
               </div>
+            </div>
 
-              <button 
-                onClick={() => router.push('/admin-login')}
-                className="w-full py-3.5 bg-neutral-900 text-white rounded-xl font-bold text-sm shadow-[0_4px_14px_0_rgb(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 group"
-              >
-                 Update Password
-                 <i className="fi fi-rr-check transition-transform group-hover:scale-110" />
-              </button>
-
-           </div>
-           
-           <div className="bg-neutral-50 p-6 border-t border-neutral-100 flex items-center justify-center flex-col gap-2">
-              <p className="text-xs text-neutral-500 font-medium">You will be required to re-authenticate after success.</p>
-           </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-6 mb-2 bg-[#151717] border-none text-white text-[15px] font-medium rounded-[10px] h-[50px] w-full cursor-pointer transition-colors hover:bg-black disabled:opacity-70 flex justify-center items-center"
+            >
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                "Update Password"
+              )}
+            </button>
+          </form>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

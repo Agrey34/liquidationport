@@ -26,6 +26,25 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       message = typeof exceptionResponse === 'object' && exceptionResponse !== null && 'message' in exceptionResponse 
          ? (exceptionResponse as any).message 
          : exceptionResponse;
+    } else if (
+      typeof exception === 'object' && 
+      exception !== null && 
+      'code' in exception && 
+      typeof (exception as any).code === 'string' &&
+      (exception as any).code.startsWith('P')
+    ) {
+      // Handle Prisma Errors
+      const prismaError = exception as any;
+      if (prismaError.code === 'P2002') {
+        status = HttpStatus.CONFLICT;
+        message = `A record with this ${prismaError.meta?.target?.join(', ') || 'value'} already exists.`;
+      } else if (prismaError.code === 'P2025') {
+        status = HttpStatus.NOT_FOUND;
+        message = 'Record not found.';
+      } else {
+        status = HttpStatus.BAD_REQUEST;
+        message = `Database Error: ${prismaError.message}`;
+      }
     }
 
     // Log the error securely (Don't leak stack traces to the client layer!)

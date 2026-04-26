@@ -3,6 +3,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -40,6 +42,9 @@ async function bootstrap() {
 
   // --- SECURITY: GLOBAL EXCEPTION MASKING ---
   app.useGlobalFilters(new GlobalHttpExceptionFilter());
+
+  // --- INTERCEPTORS ---
+  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
 
   // Prefix endpoints for REST standards
   app.setGlobalPrefix('api/v1');
