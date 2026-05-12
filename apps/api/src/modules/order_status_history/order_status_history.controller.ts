@@ -2,7 +2,7 @@ import { Controller, Get, Param, UseGuards, ParseUUIDPipe } from '@nestjs/common
 import { OrderStatusHistoryService } from './order_status_history.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 
-@Controller('v1/order-status-history')
+@Controller('order-status-history')
 @UseGuards(SupabaseAuthGuard)
 export class OrderStatusHistoryController {
   constructor(private readonly orderStatusHistoryService: OrderStatusHistoryService) {}

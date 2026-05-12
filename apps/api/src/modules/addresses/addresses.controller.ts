@@ -3,7 +3,7 @@ import { AddressesService } from './addresses.service';
 import { CreateAddressDto, UpdateAddressDto } from './dto/address.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 
-@Controller('v1/addresses')
+@Controller('addresses')
 @UseGuards(SupabaseAuthGuard)
 export class AddressesController {
   constructor(private readonly addressesService: AddressesService) {}

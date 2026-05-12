@@ -4,7 +4,7 @@ import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 
-@Controller('v1/audit')
+@Controller('audit')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
 @Roles('admin') // Only admins can view audit logs
 export class AuditController {

@@ -5,7 +5,7 @@ import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 
-@Controller('v1/admins')
+@Controller('admins')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
 @Roles('super_admin') // Restrict to super admins
 export class AdminsController {

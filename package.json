@@ -10,5 +10,8 @@
     "dev": "npm run dev --workspace=liquidationport",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "prisma": "^7.8.0"
   }
 }

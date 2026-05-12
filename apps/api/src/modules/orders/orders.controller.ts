@@ -3,7 +3,7 @@ import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 
-@Controller('api/v1/orders')
+@Controller('orders')
 @UseGuards(SupabaseAuthGuard)
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}

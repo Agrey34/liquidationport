@@ -6,12 +6,13 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("SUPABASE_DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
   extensions = [pg_trgm]
 }
 
-// -------------------------------------------------------------------------------- //
+
 // -------------------------------- ENUMS -----------------------------------------
-// -------------------------------------------------------------------------------- //
+
 
 enum OrderStatus {
   pending
@@ -43,9 +44,9 @@ enum NotificationType {
   promotion
 }
 
-// -------------------------------------------------------------------------------- //
+
 // 👤 USERS & ADMINS
-// -------------------------------------------------------------------------------- //
+
 
 model User {
   id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
@@ -79,9 +80,9 @@ model Admin {
   @@map("admins")
 }
 
-// -------------------------------------------------------------------------------- //
+
 // 📦 CATALOG DOMAIN (Products, Categories, Media, Tags, Rules) ------------------
-// -------------------------------------------------------------------------------- //
+
 
 model Category {
   id        String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
@@ -192,9 +193,9 @@ model ProductReview {
   @@map("product_reviews")
 }
 
-// -------------------------------------------------------------------------------- //
+
 // 🛒 CART DOMAIN
-// -------------------------------------------------------------------------------- //
+
 
 model Cart {
   id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
@@ -220,9 +221,9 @@ model CartItem {
   @@map("cart_items")
 }
 
-// -------------------------------------------------------------------------------- //
+
 // 📦 ORDERS, PAYMENTS, & SHIPMENTS
-// -------------------------------------------------------------------------------- //
+
 
 model Order {
   id         String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
@@ -322,9 +323,9 @@ model ShippingMethod {
   @@map("shipping_methods")
 }
 
-// -------------------------------------------------------------------------------- //
+
 // 🧠 MISC: INVENTORY, COUPONS, WISHLISTS, ADDRESSES, AUDITS, LOGS
-// -------------------------------------------------------------------------------- //
+
 
 model Inventory {
   id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid

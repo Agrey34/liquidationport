@@ -3,7 +3,7 @@ import { CartsService } from './carts.service';
 import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 
-@Controller('v1/carts')
+@Controller('carts')
 @UseGuards(SupabaseAuthGuard)
 export class CartsController {
   constructor(private readonly cartsService: CartsService) {}

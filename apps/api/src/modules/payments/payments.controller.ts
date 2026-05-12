@@ -4,7 +4,7 @@ import { CreatePaymentIntentDto } from './dto/payment.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { Request } from 'express';
 
-@Controller('v1/payments')
+@Controller('payments')
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
