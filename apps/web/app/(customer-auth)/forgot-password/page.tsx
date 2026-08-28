@@ -33,21 +33,21 @@ export default function CustomerForgotPasswordPage() {
                </div>
                <h1 className="text-2xl font-black text-neutral-900 mb-2">Check your email</h1>
                <p className="text-neutral-600 text-sm leading-relaxed mb-8">
-                  We've sent a password reset link to <br/>
+                  We&apos;ve sent a password reset link to <br/>
                   <span className="font-bold text-neutral-900">{email}</span>
                </p>
                <button 
                  onClick={() => setIsSubmitted(false)}
                  className="text-sm font-bold text-neutral-500 hover:text-neutral-900 underline"
                >
-                 Didn't receive the email? Click to try again
+                 Didn&apos;t receive the email? Click to try again
                </button>
             </div>
          ) : (
             <div className="animate-in fade-in duration-500">
                <div className="mb-8">
                   <h1 className="text-3xl font-black text-neutral-900 mb-2 tracking-tight">Reset Password</h1>
-                  <p className="text-neutral-500 font-medium text-sm">Enter the email associated with your account and we'll send you a link to reset your password.</p>
+                  <p className="text-neutral-500 font-medium text-sm">Enter the email associated with your account and we&apos;ll send you a link to reset your password.</p>
                </div>
 
                <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
@@ -10,6 +11,16 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   // Admin routes
+  @UseGuards(SupabaseAuthGuard)
+  @Post('upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    return this.categoriesService.uploadImage(file);
+  }
+
   @UseGuards(SupabaseAuthGuard, RolesGuard)
   @Roles('admin')
   @Post()

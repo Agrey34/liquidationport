@@ -23,13 +23,38 @@ async function bootstrap() {
 
   // --- SECURITY: HELMET ---
   // Sets strong HTTP headers to mitigate classic web vulnerabilities (XSS, Clickjacking, MIME snapping)
-  app.use(helmet());
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
+  const configuredOrigins = [
+    process.env.FRONTEND_URL,
+    process.env.CORS_ORIGIN,
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001',
+    'http://127.0.0.1:3002',
+  ].filter(Boolean) as string[];
 
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      if (!origin) return callback(null, true);
+      if (
+        configuredOrigins.includes(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   });
   // --- SECURITY: GLOBAL VALIDATION PIPE ---
   // Any DTO body validation occurs globally here based on class-validator decorators.
@@ -51,7 +76,9 @@ async function bootstrap() {
   // Prefix endpoints for REST standards
   app.setGlobalPrefix('api/v1');
 
-  await app.listen(process.env.PORT || 4000);
+  const port = process.env.PORT || 4000;
+  await app.listen(port);
+  console.log(`🚀 API Server listening on http://localhost:${port}/api/v1`);
 }
 
 bootstrap();

@@ -91,7 +91,7 @@ export default function CustomerOrderDetailsPage({ params }: { params: { id: str
                   {MOCK_ORDER.items.map(item => (
                      <div key={item.id} className="p-6 flex gap-4">
                         <div className="relative w-20 h-20 bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden shrink-0">
-                           <Image src={item.img} alt={item.title} fill className="object-cover mix-blend-multiply" />
+                           <Image src={item.img} alt={item.title} fill className="object-cover mix-blend-multiply" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                         </div>
                         <div className="flex-1 flex flex-col justify-center">
                            <h4 className="text-sm font-bold text-neutral-900 line-clamp-2">{item.title}</h4>

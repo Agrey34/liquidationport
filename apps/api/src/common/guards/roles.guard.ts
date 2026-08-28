@@ -24,8 +24,8 @@ export class RolesGuard implements CanActivate {
     }
 
     // Check if user's role is in the list of required roles
-    // We get role from user.app_metadata.role or fallback to 'customer'
-    const userRole = user.app_metadata?.role || 'customer';
+    // We get role from user.app_metadata.role, user.role, or fallback to 'customer'
+    const userRole = user.app_metadata?.role || user.role || 'customer';
     
     const hasRole = requiredRoles.includes(userRole);
 

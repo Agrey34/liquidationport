@@ -1,31 +1,33 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '../../../lib/supabase/server'
+import { NextResponse } from 'next/server';
+import { createClient } from '../../../lib/supabase/server';
 
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url)
-  const code = searchParams.get('code')
-  
-  const next = searchParams.get('next') ?? '/'
+  const { searchParams, origin } = new URL(request.url);
+  const code = searchParams.get('code');
+  const next = searchParams.get('next');
 
   if (code) {
-    const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    
-    if (!error) {
-      const forwardedHost = request.headers.get('x-forwarded-host')
-      const isLocalEnv = process.env.NODE_ENV === 'development'
-      
+    const supabase = await createClient();
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error && data?.user) {
+      const user = data.user;
+      const role = user?.user_metadata?.role || user?.app_metadata?.role;
+
+      const redirectPath = next || (role === 'admin' ? '/admin' : '/account');
+      const forwardedHost = request.headers.get('x-forwarded-host');
+      const isLocalEnv = process.env.NODE_ENV === 'development';
+
       if (isLocalEnv) {
-        // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-        return NextResponse.redirect(`${origin}${next}`)
+        return NextResponse.redirect(`${origin}${redirectPath}`);
       } else if (forwardedHost) {
-        return NextResponse.redirect(`https://${forwardedHost}${next}`)
+        return NextResponse.redirect(`https://${forwardedHost}${redirectPath}`);
       } else {
-        return NextResponse.redirect(`${origin}${next}`)
+        return NextResponse.redirect(`${origin}${redirectPath}`);
       }
     }
   }
 
-  
-  return NextResponse.redirect(`${origin}/admin-login/verify?message=Error verifying your email. Please try again.`)
+  const fallback = next?.startsWith('/admin') ? '/admin-login/verify?message=Authentication failed. Please try again.' : '/login?message=Authentication failed. Please try again.';
+  return NextResponse.redirect(`${origin}${fallback}`);
 }

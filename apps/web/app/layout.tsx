@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./(shop)/styles/globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-});
+import { StoreProvider } from "../lib/context/StoreContext";
 
 export const metadata: Metadata = {
   title: "Liquidation Port: Wholesale Auctions of Liquidation Inventory",
@@ -20,10 +15,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} h-full antialiased`}
+      className="h-full antialiased font-sans"
     >
       <body className="min-h-full flex flex-col font-sans relative">
+        <StoreProvider>
           {children}
+        </StoreProvider>
       </body>
     </html>
   );

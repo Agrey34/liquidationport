@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Uniform Straight Bill of Lading — FedEx Freight</title>
+<style>
+  :root{
+    --purple:#4d2a86;
+    --red:#d50032;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:Arial, Helvetica, sans-serif;
+    background:#fff;
+    color:var(--purple);
+    font-weight:700;
+    padding:25px 10px;
+  }
+  .page{width:900px;margin:0 auto;}
+  .title{font-size:13px;text-align:center;letter-spacing:.4px;}
+  .subtitle{font-size:7.5px;text-align:center;margin:3px 0 8px;}
+  .form{border:2px solid var(--purple);}
+  .form > * + *{margin-top:-1px;}
+  table{width:100%;border-collapse:collapse;}
+  td,th{border:1px solid var(--purple);font-size:8px;padding:2px 4px;vertical-align:top;}
+  .bar td{background:var(--purple);color:#fff;font-size:8.5px;padding:3px 6px;}
+  .red{color:var(--red);}
+  input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;
+    width:9px;height:9px;border:1.3px solid currentColor;
+    background:#fff;vertical-align:-1.5px;margin-right:4px;cursor:pointer;
+  }
+  label{margin-right:8px;white-space:nowrap;}
+  sup{font-size:6px;}
+
+  /* ===== TOP SECTION ===== */
+  .logo-cell{width:37%;padding:12px 14px;}
+  .logo{font-size:30px;letter-spacing:-1px;line-height:1;}
+  .logo .ex{color:var(--red);}
+  .logo .reg{font-size:7px;vertical-align:top;}
+  .freight{font-size:13px;color:#8f8f9b;margin-top:3px;font-weight:400;}
+  .h24{height:24px;}
+  .required{border:2px solid var(--red);padding:5px 8px;font-size:9.5px;line-height:1.7;}
+  .optional{font-size:8px;line-height:1.5;}
+
+  /* ===== SHIPPER / CONSIGNEE ===== */
+  .cbox{display:inline-block;width:42px;height:13px;border:1.5px solid var(--red);vertical-align:-2px;margin-left:6px;background:#fff;}
+  .h22{height:22px;} .h20{height:20px;} .h18{height:18px;} .h26{height:26px;}
+
+  /* ===== C.O.D. ===== */
+  .codwrap{border:2px solid var(--red);}
+  .codwrap td{border:1px solid var(--red);color:var(--red);}
+  .cod-mid{text-align:center;font-size:9px;}
+  .cod-mid .amt{display:inline-block;width:110px;border-bottom:1px solid var(--red);}
+
+  /* ===== FINE PRINT ===== */
+  .fine{font-size:6.4px;line-height:1.35;padding:3px 5px;text-align:justify;}
+
+  /* ===== GOODS TABLE ===== */
+  .goods th{background:var(--purple);color:#fff;text-align:center;font-size:7.5px;padding:3px 2px;}
+  .goods th.hm{background:var(--red);}
+  .goods td.hm{border-left:2px solid var(--red);border-right:2px solid var(--red);}
+  .goods tbody td{height:27px;}
+  .small{font-size:6.5px;display:block;font-weight:400;}
+  .starbar{background:var(--red);color:#fff;text-align:center;font-size:8px;padding:3px 4px;}
+
+  /* ===== BOTTOM ===== */
+  .bottom > tbody > tr > td{vertical-align:top;padding:0;border-bottom:0;}
+  td.left{width:48.5%;border-right:1px solid var(--purple);}
+  td.right{width:51.5%;}
+  .lrow{padding:3px 5px;border-bottom:1px solid var(--purple);font-size:7.5px;}
+  .blank{display:inline-block;border-bottom:1px solid currentColor;height:6px;}
+  .note{font-size:6.8px;line-height:1.4;padding:4px 5px;border-bottom:1px solid var(--purple);text-align:justify;}
+  .note label{white-space:normal;}
+  .hbar{background:var(--purple);color:#fff;font-size:8px;padding:3px 6px;border-bottom:1px solid var(--purple);}
+  .para{font-size:7.5px;line-height:1.4;padding:4px 5px;border-bottom:1px solid var(--purple);}
+  .right table td{border-left:0;border-right:0;}
+  .right table tr:first-child td{border-top:0;}
+  .area{display:block;font-size:5px;text-align:right;margin-top:-1px;font-style:normal;}
+  .sig{height:20px;}
+  .sigrow div{display:inline-block;width:60%;font-size:7.5px;padding:2px 5px;}
+  .sigrow .dt{width:38%;border-left:1px solid var(--purple);}
+  .carrier th{background:var(--purple);color:#fff;font-size:7.5px;text-align:left;border-left:0;border-right:0;}
+  .carrier td{border-left:0;border-right:0;height:22px;}
+  .carrier tr:last-child td{border-bottom:0;}
+
+  .footer{display:flex;margin-top:4px;font-size:9px;}
+  .footer span{flex:1;}
+  .footer .mid{text-align:center;}
+  .footer .code{text-align:right;font-size:7px;color:#333;}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="title">UNIFORM STRAIGHT BILL OF LADING ORIGINAL---NOT NEGOTIABLE</div>
+  <div class="subtitle">SUBJECT TO THE TERMS AND CONDITIONS OF THE UNIFORM BILL OF LADING --- QUESTIONS? CALL 1.866.393.4585</div>
+
+  <div class="form">
+
+    <!-- ============ TOP ============ -->
+    <table>
+      <tr>
+        <td class="logo-cell" rowspan="3">
+          <div class="logo">Fed<span class="ex">Ex</span><span class="reg">®</span></div>
+          <div class="freight">Freight</div>
+        </td>
+        <td class="h24" style="width:31%">Date</td>
+        <td class="h24" style="width:32%">Purchase Order #</td>
+      </tr>
+      <tr>
+        <td class="h24">Shipper #</td>
+        <td class="h24">Shipper #</td>
+      </tr>
+      <tr>
+        <td style="width:31%">
+          <div class="required red">
+            REQUIRED: Please select a service type<br>
+            <label><input type="checkbox"> FedEx Freight<sup>®</sup> Priority</label><br>
+            <label><input type="checkbox"> FedEx Freight<sup>®</sup> Economy</label>
+          </div>
+        </td>
+        <td class="optional">
+          OPTIONAL: You may select a money-back guarantee delivery (charges and tariff limitations may apply).<br>
+          <label><input type="checkbox"> A.M. Delivery</label>
+          <label><input type="checkbox"> Close of Business Delivery</label>
+        </td>
+      </tr>
+    </table>
+
+    <!-- ============ SHIPPER / CONSIGNEE ============ -->
+    <table class="bar"><tr>
+      <td style="width:20%">SHIPPER (from)</td>
+      <td style="text-align:center">Please provide ZIP codes and phone numbers.</td>
+      <td style="width:20%">CONSIGNEE (to)</td>
+    </tr></table>
+
+    <table>
+      <colgroup><col span="20" style="width:5%"></colgroup>
+      <tr>
+        <td colspan="7" class="h22">Shipper</td>
+        <td colspan="3" class="h22">FXF Acct. #</td>
+        <td colspan="7" class="h22">Consignee <span class="cbox"></span></td>
+        <td colspan="3" class="h22">FXF Acct. #</td>
+      </tr>
+      <tr>
+        <td colspan="7" class="h20">Attn. to</td>
+        <td colspan="1" class="h20">Area Code</td>
+        <td colspan="2" class="h20">Phone Number</td>
+        <td colspan="7" class="h20">Attn. to</td>
+        <td colspan="1" class="h20">Area Code</td>
+        <td colspan="2" class="h20">Phone Number</td>
+      </tr>
+      <tr>
+        <td colspan="10" class="h20">Address</td>
+        <td colspan="10" class="h20">Address</td>
+      </tr>
+      <tr>
+        <td colspan="10" class="h20">Address (Store, Dept., Ste., Flr., Apt., Div.)</td>
+        <td colspan="10" class="h20">Address (Store, Dept., Ste., Flr., Apt., Div.)</td>
+      </tr>
+      <tr>
+        <td colspan="10" class="h20">Address</td>
+        <td colspan="10" class="h20">Address</td>
+      </tr>
+      <tr>
+        <td colspan="10" class="h20">City</td>
+        <td colspan="10" class="h20">City</td>
+      </tr>
+      <tr>
+        <td colspan="5" class="h20">State/Province</td>
+        <td colspan="3" class="h20">ZIP/Postal Code</td>
+        <td colspan="2" class="h20">Country</td>
+        <td colspan="5" class="h20">State/Province</td>
+        <td colspan="3" class="h20">ZIP/Postal Code</td>
+        <td colspan="2" class="h20">Country</td>
+      </tr>
+      <tr>
+        <td colspan="10" class="h18">Optional or Additional Service Fees and Charges
+          <label><input type="checkbox">Liftgate</label>
+          <label><input type="checkbox">Inside Pickup</label>
+          <label><input type="checkbox">Limited Access</label>
+        </td>
+        <td colspan="10" class="h18">Optional or Additional Service Fees and Charges
+          <label><input type="checkbox">Liftgate</label>
+          <label><input type="checkbox">Inside Delivery</label>
+          <label><input type="checkbox">Limited Access</label>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="10" class="h20">Shipper Bill of Lading #</td>
+        <td colspan="10" class="h20">Custom Delivery Window:</td>
+      </tr>
+      <tr>
+        <td colspan="20" class="h26">Special Instructions</td>
+      </tr>
+    </table>
+
+    <!-- ============ BILL FREIGHT CHARGES TO ============ -->
+    <table class="bar"><tr><td>BILL FREIGHT CHARGES TO (if different than above):</td></tr></table>
+    <table>
+      <colgroup><col span="20" style="width:5%"></colgroup>
+      <tr>
+        <td colspan="7" class="h22">Name</td>
+        <td colspan="4" class="h22">FXF Acct. #</td>
+        <td colspan="9" class="h22">Mailing Address</td>
+      </tr>
+      <tr>
+        <td colspan="8" class="h20">City</td>
+        <td colspan="2" class="h20">State</td>
+        <td colspan="2" class="h20">ZIP/Postal Code</td>
+        <td colspan="3" class="h20">Country</td>
+        <td colspan="2" class="h20">Area Code</td>
+        <td colspan="3" class="h20">Phone Number</td>
+      </tr>
+    </table>
+
+    <!-- ============ C.O.D. ============ -->
+    <table class="codwrap">
+      <tr>
+        <td style="width:27%">
+          Freight charges are <u>PREPAID</u> unless marked collect.<br><br>
+          CHECK BOX IF COLLECT <input type="checkbox">
+        </td>
+        <td class="cod-mid" style="width:29%">
+          <strong style="font-size:11px;">C.O.D.</strong><br>
+          <label><input type="checkbox">USD</label><br>
+          <label><input type="checkbox">CAD</label><br>
+          AMOUNT <span class="amt"></span>
+        </td>
+        <td style="width:44%;line-height:1.8;">
+          1.&nbsp; The letters "C.O.D." must appear in box before consignee's name above.<br>
+          2.&nbsp; C.O.D. funds to be collected as:
+          <label><input type="checkbox">Certified Funds</label>
+          <label><input type="checkbox">Company Check</label>
+          <label><input type="checkbox">Personal Check</label><br>
+          3.&nbsp; C.O.D. fee to be paid by:
+          <label><input type="checkbox">Shipper</label>
+          <label><input type="checkbox">Consignee</label>
+        </td>
+      </tr>
+    </table>
+
+    <!-- ============ REMIT C.O.D. TO ============ -->
+    <table class="bar"><tr><td>REMIT C.O.D. TO (if different than shipper above):</td></tr></table>
+    <table>
+      <colgroup><col span="20" style="width:5%"></colgroup>
+      <tr>
+        <td colspan="10" class="h22">Name</td>
+        <td colspan="10" class="h22">Mailing Address</td>
+      </tr>
+      <tr>
+        <td colspan="8" class="h20">City</td>
+        <td colspan="2" class="h20">State</td>
+        <td colspan="2" class="h20">ZIP/Postal Code</td>
+        <td colspan="2" class="h20">Country</td>
+        <td colspan="2" class="h20">Country Code</td>
+        <td colspan="1" class="h20">Area Code</td>
+        <td colspan="3" class="h20">Phone Number</td>
+      </tr>
+    </table>
+
+    <!-- ============ RECEIVED ============ -->
+    <div class="fine">
+      RECEIVED, subject to individually determined rates or conditions that have been agreed upon in writing between the carrier and shipper, if applicable, otherwise to the rates, classifications and rules that have been established by the carrier and are available to the shipper or consignee, and to the applicable state and federal regulations. No property shall be received, handled, transported or delivered by the carrier unless it is packaged and marked in accordance with the carrier's published rules and regulations. The agreed value of the property is specifically stated in writing by the shipper as follows: "The agreed or declared value of the property is specifically stated by the shipper to be not exceeding ______ per ______." The carrier's maximum liability is limited to $25 per pound per package for NEW articles and $.50 per pound per package (or its equivalent in MXN or CAD) for USED or RECONDITIONED articles, unless the shipper has declared a higher value in writing and paid an additional coverage charge. The carrier is not responsible for loss, damage or delay caused by an act of God, the public enemy, the authority of law, or the fault or neglect of the shipper. The shipper agrees that the carrier's maximum liability shall be not exceeding ______ per ______.
+    </div>
+
+    <!-- ============ GOODS TABLE ============ -->
+    <table class="goods">
+      <colgroup>
+        <col style="width:7%"><col style="width:7%"><col style="width:5%"><col style="width:4%">
+        <col style="width:44%"><col style="width:10%"><col style="width:10%"><col style="width:7%"><col style="width:6%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>HANDLING UNITS (H/U)</th>
+          <th>H/U PKG. TYPE</th>
+          <th>PIECES</th>
+          <th class="hm">HM (X)</th>
+          <th>KIND OF PACKAGE, DESCRIPTION OF ARTICLES, SPECIAL MARKS AND EXCEPTIONS
+              <span class="small">(subject to correction)</span></th>
+          <th>WEIGHT IN LBS.</th>
+          <th>NMEC ITEM #<span class="small">(subject to correction)</span></th>
+          <th>CLASS</th>
+          <th>CUBE <span class="small">(inches)</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr><td></td><td></td><td></td><td class="hm"></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr>
+          <td colspan="3" style="height:16px;">TOTAL H/U:</td>
+          <td colspan="6" class="starbar">★ MARK "X" OR "RQ" IN THE HM COLUMN TO DESIGNATE HAZARDOUS MATERIALS OR REPORTABLE QUANTITY AS DEFINED IN DOT REGULATIONS.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- ============ BOTTOM ============ -->
+    <table class="bottom"><tr>
+      <td class="left">
+        <div class="lrow red">HM EMERGENCY CONTACT PHONE NUMBER ( <span class="blank" style="width:28px"></span> ) <span class="blank" style="width:28px"></span> - <span class="blank" style="width:40px"></span></div>
+        <div class="lrow red">CUSTOMER REGISTERED W/EMERGENCY RESPONSE INFO. PROVIDER or CONTRACT # <span class="blank" style="width:60px"></span></div>
+        <div class="note">
+          <strong>NOTE (1)</strong> Where the rate and carrier's liability for loss or damage may be dependent on value, shipper must state specifically in writing the agreed or declared value of the property as follows: "The agreed or declared value of the property is specifically stated by the shipper to be not exceeding ______ per ______."
+        </div>
+        <div class="note">
+          <strong>Note (2)</strong> liability limitation for loss or or damage on this shipment shall be applicable as provided by contract or in the current NMFC or this carrier's governing tariffs. See FXF 100 Series Rules Tariff for complete limited liability provisions. Carrier's maximum standard liability is limited to $25 per pound per package for NEW articles and $.50 per pound per package (or its equivalent in Mexican Pesos (MXN) or Canadian Dollars (CAD), at the rate of exchange which is in effect at the place and on the date of shipment) for USED or RECONDITIONED articles. In no case shall carrier liability exceed $100,000 per occurrence (or its equivalent in MXN or CAD at the rate of exchange which is in effect at the place and on the date of shipment) for NEW articles or $10,000 per occurrence (or its equivalent in MXN or CAD at the rate of exchange which is in effect at the place and on the date of shipment) for USED or RECONDITIONED articles. For availability and limits of excess liability coverage and applicable rates and charges, please refer to FXF 100 Series Rules Tariff. Not selecting an additional coverage option is considered to be a waiver of same and standard liability coverage will apply.<br>
+          <label><input type="checkbox"> Articles are <strong>NEW</strong>, and require Excess Liability Coverage in the amount of
+            <input type="checkbox">USD <input type="checkbox">CAD <input type="checkbox">MXN per
+            <input type="checkbox">lb. or <input type="checkbox">Kg. Additional charges will apply.</label><br>
+          <label><input type="checkbox"> Articles are <strong>USED or RECONDITIONED</strong> and require Excess Liability Coverage. Additional charges will apply.</label>
+        </div>
+        <div class="note">
+          <strong>NOTE (3)</strong> Commodities requiring special or additional care or attention in handling or stowing must be so marked and packaged and to ensure safe transportation with ordinary care. See Sec. 2(a) of NMFC Item 360.
+        </div>
+        <div class="lrow" style="border-bottom:0;">Create your next Bill of Lading online at fedex.com/us/freight/main/</div>
+      </td>
+      <td class="right">
+        <div class="hbar">FOR INTERNATIONAL SHIPMENTS INDICATE BROKER NAME, FAX AND PHONE NUMBERS.</div>
+        <table>
+          <tr>
+            <td style="width:60%" class="h22">EEI/SED Number or Exception</td>
+            <td style="width:40%">Phone # ( <span class="blank" style="width:24px"></span> ) <span class="blank" style="width:50px"></span><em class="area">AREA CODE</em></td>
+          </tr>
+          <tr>
+            <td class="h22">Broker Name</td>
+            <td>Fax # ( <span class="blank" style="width:24px"></span> ) <span class="blank" style="width:50px"></span><em class="area">AREA CODE</em></td>
+          </tr>
+        </table>
+        <div class="hbar">FOR FREIGHT COLLECT SHIPMENTS</div>
+        <div class="para">
+          Subject to Section 7 of conditions of applicable Bill of Lading. If this shipment is to be delivered to the consignee, without recourse on the consignor, the consignor shall sign the following statement. The carrier may decline to make delivery of this shipment without payment of freight and all other lawful charges.
+        </div>
+        <div class="para"><div class="sig"></div>Consignor Signature</div>
+        <div class="hbar">SHIPPER CERTIFICATION</div>
+        <div class="para">
+          I hereby declare that the contents of this consignment are fully and accurately described above by the proper shipping name, and are classified, packaged, marked and labeled/placarded, and are in all respects in proper condition for transport according to applicable international and national governmental regulations.
+        </div>
+        <div class="para sigrow">
+          <div><div class="sig"></div>Shipper Signature</div><div class="dt"><div class="sig"></div>Date</div>
+        </div>
+        <div class="hbar">CARRIER CERTIFICATION</div>
+        <div class="para" style="border-bottom:0;">
+          Carrier acknowledges receipt of packages and required placards. Carrier certifies emergency response information was made available and/or carrier has the DOT emergency response guidebook or equivalent document in the vehicle.
+        </div>
+        <table class="carrier">
+          <colgroup><col style="width:28%"><col style="width:44%"><col style="width:14%"><col style="width:14%"></colgroup>
+          <tr><th>DATE</th><th>DRIVER/EMPLOYEE NUMBER</th><th>PIECE COUNT</th><th>TRAILER #</th></tr>
+          <tr><td></td><td></td><td></td><td></td></tr>
+        </table>
+      </td>
+    </tr></table>
+
+  </div><!-- /form -->
+
+  <div class="footer">
+    <span></span>
+    <span class="mid">FedEx Freight</span>
+    <span class="code">CC020/516-FXF</span>
+  </div>
+
+</div>
+</body>
+</html>

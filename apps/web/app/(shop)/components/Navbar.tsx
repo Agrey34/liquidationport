@@ -4,13 +4,18 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, Search, ChevronDown, X, ShoppingCart } from "lucide-react";
+import { Menu, Search, ChevronDown, X, ShoppingCart, Heart } from "lucide-react";
 import CartDrawer from "./CartDrawer";
+import WishlistDrawer from "./WishlistDrawer";
+import { useStorefrontConfig } from "../../../lib/hooks/useStorefrontConfig";
+import { useCart, useWishlist } from "../../../lib/context/StoreContext";
 
 export default function Navbar() {
   const router = useRouter();
+  const { config } = useStorefrontConfig();
+  const { isCartOpen, setIsCartOpen, cartCount } = useCart();
+  const { isWishlistOpen, setIsWishlistOpen, openWishlist, wishlistCount } = useWishlist();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Prevent scrolling when mobile menu is open
@@ -45,9 +50,37 @@ export default function Navbar() {
     { name: "Privacy Policy", href: "/privacy-policy" },
   ];
 
+  const announcement = config.announcement;
+
   return (
     <>
       <header className="sticky top-0 z-40 w-full bg-white border-b border-gray-100 shadow-sm">
+        {/* Top Announcement Bar */}
+        {announcement.enabled && (
+          <div
+            className="py-2 px-4 text-center text-xs sm:text-sm font-medium flex items-center justify-center gap-2 flex-wrap transition-colors"
+            style={{
+              backgroundColor: announcement.bgColor || '#111827',
+              color: announcement.textColor || '#ffffff',
+            }}
+          >
+            {announcement.badge && (
+              <span className="bg-white/20 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                {announcement.badge}
+              </span>
+            )}
+            <span>{announcement.text}</span>
+            {announcement.linkText && (
+              <Link
+                href={announcement.linkUrl || '/products'}
+                className="underline font-bold ml-1 text-white/90 hover:text-white"
+              >
+                {announcement.linkText} →
+              </Link>
+            )}
+          </div>
+        )}
+
         {/* Main Navbar Row */}
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
@@ -105,12 +138,32 @@ export default function Navbar() {
                   </Link>
               </div>
               
+              {/* Wishlist Button */}
+              <button 
+                onClick={openWishlist}
+                className="relative p-2 text-gray-600 hover:text-primary transition-colors hover:bg-gray-100 rounded-full cursor-pointer"
+                title="Saved Pallets (Wishlist)"
+              >
+                <Heart className="w-5 h-5" />
+                {wishlistCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-xs animate-in zoom-in-50">
+                    {wishlistCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Cart Button */}
               <button 
                 onClick={() => setIsCartOpen(true)}
-                className="relative p-2 text-gray-600 hover:text-primary transition-colors hover:bg-gray-100 rounded-full"
+                className="relative p-2 text-gray-600 hover:text-primary transition-colors hover:bg-gray-100 rounded-full cursor-pointer"
+                title="Shopping Cart"
               >
-                 <ShoppingCart className="w-5 h-5" />
-                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
+                <ShoppingCart className="w-5 h-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-[#150050] text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-xs animate-in zoom-in-50">
+                    {cartCount}
+                  </span>
+                )}
               </button>
               
               {/* Mobile Auth Links Fallback */}
@@ -148,13 +201,13 @@ export default function Navbar() {
         />
       )}
 
-      {/* Mobile Sidebar Navigation */}
+      {/* Mobile Slide-out Drawer */}
       <div 
-        className={`fixed top-0 left-0 h-full w-[280px] sm:w-[350px] bg-white z-60 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 left-0 h-full w-[300px] bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${
           isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="p-4 flex justify-between items-center border-b border-gray-100 shrink-0">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
           <span className="text-primary text-xl font-bold tracking-tight">Menu</span>
           <button 
             onClick={() => setIsMobileMenuOpen(false)} 
@@ -170,7 +223,7 @@ export default function Navbar() {
             {menuItems.map((item, idx) => (
               <li key={idx}>
                 <Link 
-                  href={item.href}
+                  href={item.href} 
                   className="block px-4 py-3 text-[17px] text-[#252525] hover:bg-gray-50 hover:text-primary rounded-md transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -183,6 +236,7 @@ export default function Navbar() {
       </div>
 
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+      <WishlistDrawer isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} />
     </>
   );
 }

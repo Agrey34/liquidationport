@@ -51,24 +51,53 @@ export class PaymentsService {
     // const event = stripe.webhooks.constructEvent(req.rawBody, signature, endpointSecret);
     const event = req.body; // Using body for mock purposes
     
-    // Log event for audit and replay
-    await this.prisma.paymentEvent.create({
-      data: {
-        eventType: event.type || 'unknown_event',
-        payload: event,
-        paymentId: null, // Associate if possible
-      },
-    });
+    // Process the payment webhook updates inside a single database transaction to guarantee integrity
+    await this.prisma.$transaction(async (tx) => {
+      // 1. Log event for audit and replay
+      const paymentEvent = await tx.paymentEvent.create({
+        data: {
+          eventType: event.type || 'unknown_event',
+          payload: event,
+        },
+      });
 
-    // Mock handling payment intent succeeded
-    if (event.type === 'payment_intent.succeeded') {
-      const paymentIntent = event.data.object;
-      
-      // Find the payment record associated with this providerId
-      // and update order status to paid
-      // This is pseudo-code for the mock:
-      // await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: 'paid' } })
-    }
+      // 2. Handle payment intent succeeded
+      if (event.type === 'payment_intent.succeeded') {
+        const paymentIntent = event.data?.object;
+        if (paymentIntent && paymentIntent.id) {
+          // Find the payment record associated with this providerId
+          const payment = await tx.payment.findFirst({
+            where: { providerId: paymentIntent.id },
+          });
+
+          if (payment) {
+            // Update payment status to paid
+            await tx.payment.update({
+              where: { id: payment.id },
+              data: { status: 'paid' },
+            });
+
+            // Update order status to paid
+            await tx.order.update({
+              where: { id: payment.orderId },
+              data: { status: 'paid' },
+            });
+
+            // Log status change to order history
+            await tx.orderStatusHistory.create({
+              data: {
+                orderId: payment.orderId,
+                status: 'paid',
+                note: `Payment verified via webhook event: ${paymentEvent.id}`,
+              },
+            });
+          }
+        }
+      }
+    }, {
+      maxWait: 15000,
+      timeout: 20000,
+    });
 
     return { received: true };
   }

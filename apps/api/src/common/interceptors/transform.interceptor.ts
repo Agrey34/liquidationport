@@ -17,12 +17,13 @@ export class TransformInterceptor<T> implements NestInterceptor<T, Response<T>> 
   intercept(context: ExecutionContext, next: CallHandler): Observable<Response<T>> {
     return next.handle().pipe(
       map(data => {
-        // If the data is already paginated (has data and meta), just return it
-        if (data && typeof data === 'object' && 'data' in data && 'meta' in data) {
+        // If the response already has a `data` key (e.g. paginated responses with meta,
+        // or service responses with kpis/stats), return as-is to avoid double-wrapping.
+        if (data && typeof data === 'object' && 'data' in data) {
           return data;
         }
-        
-        // Otherwise, wrap it in a data object
+
+        // Otherwise, wrap plain values/objects in a data envelope
         return { data };
       }),
     );

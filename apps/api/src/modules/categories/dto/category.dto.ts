@@ -13,6 +13,10 @@ export class CreateCategoryDto {
     message: 'Slug must be lowercase alphanumeric and can contain hyphens',
   })
   slug: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
 
 export class UpdateCategoryDto {
@@ -30,4 +34,9 @@ export class UpdateCategoryDto {
     message: 'Slug must be lowercase alphanumeric and can contain hyphens',
   })
   slug?: string;
+
+  @IsOptional()
+  @IsString()
+  imageUrl?: string;
 }
+

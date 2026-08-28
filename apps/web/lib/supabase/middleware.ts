@@ -47,8 +47,18 @@ export async function updateSession(request: NextRequest) {
 
   // Prevent logged-in users from viewing the admin login page
   if ((request.nextUrl.pathname === '/admin-login' || request.nextUrl.pathname === '/admin-signup') && user) {
+    const rawCookie = request.cookies.get('admin_last_tab')?.value
+    let target = '/admin'
+    if (rawCookie) {
+      const decoded = decodeURIComponent(rawCookie)
+      if (decoded.startsWith('/admin') && !decoded.startsWith('/admin-login') && !decoded.startsWith('/admin-signup')) {
+        target = decoded
+      }
+    }
     const url = request.nextUrl.clone()
-    url.pathname = '/admin/products/create' // or '/admin' dashboard
+    url.pathname = target.split('?')[0]
+    const search = target.split('?')[1]
+    url.search = search ? `?${search}` : ''
     return NextResponse.redirect(url)
   }
 

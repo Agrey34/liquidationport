@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumber, Min, IsBoolean, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, Max, IsBoolean, IsEnum } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
 export enum SortByEnum {
@@ -48,5 +48,6 @@ export class ProductQueryDto {
   @Type(() => Number)
   @IsNumber()
   @Min(1)
+  @Max(100)
   limit?: number = 20;
 }

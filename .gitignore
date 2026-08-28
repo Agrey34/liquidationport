@@ -5,27 +5,7 @@
 # ============================================================
 
 # ================================
-# !! MOST IMPORTANT — NEVER COMMIT
-# ================================
-
-# All node_modules everywhere in the monorepo
-node_modules/
-**/node_modules/
-
-# Next.js build output & cache (ALL locations)
-.next/
-**/.next/
-out/
-**/out/
-
-# NestJS / TypeScript build output
-dist/
-**/dist/
-build/
-**/build/
-
-# ================================
-# Environment Variables (SECURITY)
+# !! NEVER COMMIT: Secrets & Env Files
 # ================================
 .env
 .env.local
@@ -37,8 +17,89 @@ build/
 .env.production
 .env.production.local
 .env.*
+*.env
+*.env.*
 !.env.example
 !.env.*.example
+
+# Credentials & Key Files
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.pkcs12
+*serviceAccount*.json
+*service_account*.json
+credentials.json
+secrets.json
+*.secret
+*.secrets
+*.cred
+*.credentials
+id_rsa*
+id_ed25519*
+.mcp.json
+
+# ================================
+# Scratch, Benchmark & Manual DB Migration Scripts
+# ================================
+scratch/
+**/scratch/
+scratch-*
+*.scratch.*
+apps/api/apply-*.js
+apps/api/apply-*.ts
+apps/api/benchmark-*.js
+apps/api/benchmark-*.ts
+apps/api/create-*.js
+apps/api/create-*.ts
+apps/api/update-*.js
+apps/api/update-*.ts
+apps/api/scratch-*.js
+apps/api/scratch-*.ts
+apps/api/enable_rls.sql
+apps/api/*.sql
+*.sql
+*.ps1
+test-*.js
+test-*.ts
+
+# ================================
+# Dependency Directories
+# ================================
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# ================================
+# Build Outputs & Caches
+# ================================
+# Next.js
+.next/
+**/.next/
+out/
+**/out/
+
+# NestJS / TypeScript
+dist/
+**/dist/
+build/
+**/build/
+*.tsbuildinfo
+**/*.tsbuildinfo
+
+# Turbo / Monorepo
+.turbo/
+.cache/
+**/.turbo/
+**/.cache/
 
 # ================================
 # Prisma Generated Client & Engines
@@ -49,44 +110,7 @@ apps/api/node_modules/.prisma/
 apps/api/node_modules
 
 # ================================
-# TypeScript Build Info
-# ================================
-*.tsbuildinfo
-**/*.tsbuildinfo
-
-# ================================
-# Package Manager Caches
-# ================================
-.pnp
-.pnp.js
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-*.log
-
-# ================================
-# Turbo / Monorepo Build Cache
-# ================================
-.turbo/
-.cache/
-**/.turbo/
-**/.cache/
-
-# ================================
-# Vercel / Deployment
-# ================================
-.vercel
-**/.vercel
-.netlify
-
-# ================================
-# Testing & Coverage
+# Testing & Coverage Reports
 # ================================
 coverage/
 **/coverage/
@@ -94,9 +118,30 @@ coverage/
 *.lcov
 htmlcov/
 .coverage
+test-results/
+playwright-report/
+blob-report/
 
 # ================================
-# Editors & IDEs
+# Logs & Debugging
+# ================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ================================
+# Deployment Artifacts
+# ================================
+.vercel
+**/.vercel
+.netlify
+
+# ================================
+# Editors & IDE Configurations
 # ================================
 .vscode/
 .idea/
@@ -105,29 +150,15 @@ htmlcov/
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
 
 # ================================
-# OS Files
+# OS & System Files
 # ================================
 .DS_Store
 Thumbs.db
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
-
-# ================================
-# Security / Credentials
-# ================================
-*.pem
-*.key
-*.cert
-*.p12
-*.pfx
-serviceAccountKey.json
-
-# ================================
-# Misc
-# ================================
 *.tmp
-*.swp
-logs/

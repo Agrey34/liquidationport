@@ -8,6 +8,18 @@ import { login } from '../../auth/actions';
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [lastTab, setLastTab] = useState<string>('/admin');
+
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('admin_last_tab');
+      if (saved && saved.startsWith('/admin') && !saved.startsWith('/admin-login') && !saved.startsWith('/admin-signup')) {
+        setLastTab(saved);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -15,6 +27,9 @@ export default function LoginPage() {
     setError(null);
     
     const formData = new FormData(e.currentTarget);
+    if (!formData.get('redirectTo')) {
+      formData.set('redirectTo', lastTab || '/admin');
+    }
     const result = await login(formData);
     
     if (result?.error) {
@@ -49,6 +64,7 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+            <input type="hidden" name="redirectTo" value={lastTab} />
             <div className="flex flex-col gap-1">
               <label className="text-[#151717] font-semibold text-sm">Email</label>
               <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center pl-3 transition-colors duration-200 focus-within:border-[#2d79f3]">

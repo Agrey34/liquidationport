@@ -15,6 +15,7 @@ const navItems = [
   { name: 'Coupons', href: '/admin/coupons', icon: 'fi fi-rr-ticket' },
   { name: 'Storefront', href: '/admin/storefront', icon: 'fi fi-rr-layout-fluid' },
   { name: 'Settings', href: '/admin/settings', icon: 'fi fi-rr-settings' },
+  { name: 'Audit Logs', href: '/admin/audit-logs', icon: 'fi fi-rr-document-signed' },
 ];
 
 export default function AdminSidebar() {

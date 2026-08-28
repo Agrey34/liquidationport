@@ -5,19 +5,43 @@ import Image from 'next/image';
 
 import { Section } from './FormSection';
 
-interface Props {
-  images: string[];
-  setImages: React.Dispatch<React.SetStateAction<string[]>>;
+export interface MediaItem {
+  id: string;
+  url: string;
+  file?: File;
 }
 
-export function MediaSection({ images, setImages }: Props) {
+interface Props {
+  media: MediaItem[];
+  setMedia: React.Dispatch<React.SetStateAction<MediaItem[]>>;
+}
+
+export function MediaSection({ media, setMedia }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    const urls  = files.map(f => URL.createObjectURL(f));
-    setImages(prev => [...prev, ...urls].slice(0, 8));
+    const newItems: MediaItem[] = files.map(f => ({
+      id: crypto.randomUUID(),
+      url: URL.createObjectURL(f),
+      file: f,
+    }));
+    setMedia(prev => [...prev, ...newItems].slice(0, 8));
     e.target.value = '';
+  };
+
+  const handleRemove = (index: number) => {
+    setMedia(prev => {
+      const target = prev[index];
+      if (target && target.url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(target.url);
+        } catch {
+          // ignore
+        }
+      }
+      return prev.filter((_, idx) => idx !== index);
+    });
   };
 
   return (
@@ -41,12 +65,11 @@ export function MediaSection({ images, setImages }: Props) {
         </div>
 
         {/* Preview grid */}
-        {images.length > 0 && (
+        {media.length > 0 && (
           <div className="grid grid-cols-4 gap-3">
-            {images.map((src, i) => (
-              <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 group">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <Image fill={true} src={src} alt={`Product image ${i + 1}`} className="object-cover" />
+            {media.map((item, i) => (
+              <div key={item.id || i} className="relative aspect-square rounded-xl overflow-hidden border border-neutral-200 group">
+                <Image unoptimized fill={true} src={item.url} alt={`Product image ${i + 1}`} className="object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                 {i === 0 && (
                   <span className="absolute top-1.5 left-1.5 text-[10px] font-bold bg-neutral-900 text-white px-1.5 py-0.5 rounded-md">
                     Cover
@@ -54,7 +77,7 @@ export function MediaSection({ images, setImages }: Props) {
                 )}
                 <button
                   type="button"
-                  onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                  onClick={() => handleRemove(i)}
                   className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-rose-500"
                 >
                   <i className="fi fi-rr-cross-small text-lg flex items-center justify-center shrink-0" />

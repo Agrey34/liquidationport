@@ -4,26 +4,106 @@ import Image from "next/image";
 import Link from "next/link";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { useRef, useState, useEffect } from "react";
+import { apiFetch } from "../../../lib/api";
+
+interface CategoryItem {
+  id?: string;
+  name: string;
+  slug?: string;
+  imageUrl?: string | null;
+  image?: string;
+}
+
+export function getCategoryFallbackImage(name: string, slug: string = ''): string {
+  const text = `${name} ${slug}`.toLowerCase();
+
+  if (text.includes('cloth') || text.includes('apparel') || text.includes('fashion') || text.includes('wear') || text.includes('shoe')) {
+    return 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&q=80&w=400&h=400';
+  }
+  if (text.includes('appliance') || text.includes('kitchen') || text.includes('fridge') || text.includes('cookware')) {
+    return 'https://images.unsplash.com/photo-1583847268964-b28e5f884f67?auto=format&fit=crop&q=80&w=400&h=400';
+  }
+  if (text.includes('beauty') || text.includes('health') || text.includes('personal') || text.includes('cosmetic')) {
+    return '/catergories/health-beauty.png';
+  }
+  if (text.includes('tool') || text.includes('hardware') || text.includes('improvement') || text.includes('construct')) {
+    return '/catergories/home-improvement.png';
+  }
+  if (text.includes('toy') || text.includes('game') || text.includes('hobby')) {
+    return '/catergories/toys.png';
+  }
+  if (text.includes('sport') || text.includes('fitness') || text.includes('outdoor') || text.includes('exercise')) {
+    return '/catergories/sports.png';
+  }
+  if (text.includes('furniture') || text.includes('couch') || text.includes('chair') || text.includes('table')) {
+    return '/catergories/furniture.png';
+  }
+  if (text.includes('patio') || text.includes('garden') || text.includes('yard') || text.includes('lawn')) {
+    return '/catergories/patio-garden.png';
+  }
+  if (text.includes('baby') || text.includes('kid') || text.includes('infant')) {
+    return '/catergories/baby.png';
+  }
+  if (text.includes('pet') || text.includes('dog') || text.includes('cat')) {
+    return '/catergories/pet-toys-pet-supplies.png';
+  }
+  if (text.includes('auto') || text.includes('car') || text.includes('motor') || text.includes('vehicle')) {
+    return '/catergories/automotive.png';
+  }
+  if (text.includes('office') || text.includes('desk') || text.includes('paper')) {
+    return '/catergories/furniture-office.png';
+  }
+  if (text.includes('home') || text.includes('decor') || text.includes('living')) {
+    return '/catergories/home.png';
+  }
+  if (text.includes('general') || text.includes('merchandise') || text.includes('misc')) {
+    return 'https://images.unsplash.com/photo-1586528116311-ad8ed745330e?auto=format&fit=crop&q=80&w=400&h=400';
+  }
+  if (text.includes('electr') || text.includes('tech') || text.includes('comput') || text.includes('phone')) {
+    return '/catergories/electronics.png';
+  }
+
+  return '/catergories/home.png';
+}
+
+const DEFAULT_CATEGORIES: CategoryItem[] = [
+  { name: "Apparel & Clothing", image: "https://images.unsplash.com/photo-1556905055-8f358a7a47b2?auto=format&fit=crop&q=80&w=400&h=400" },
+  { name: "Appliances", image: "https://images.unsplash.com/photo-1583847268964-b28e5f884f67?auto=format&fit=crop&q=80&w=400&h=400" },
+  { name: "Beauty & Personal Care", image: "/catergories/health-beauty.png" },
+  { name: "Electronics", image: "/catergories/electronics.png" },
+  { name: "Furniture", image: "/catergories/furniture.png" },
+  { name: "General Merchandise", image: "https://images.unsplash.com/photo-1586528116311-ad8ed745330e?auto=format&fit=crop&q=80&w=400&h=400" },
+  { name: "Home & Garden", image: "/catergories/patio-garden.png" },
+  { name: "Sports & Outdoors", image: "/catergories/sports.png" },
+  { name: "Tools & Hardware", image: "/catergories/home-improvement.png" },
+  { name: "Toys & Games", image: "/catergories/toys.png" },
+];
 
 export default function CategoryGrid() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
+  const [displayCategories, setDisplayCategories] = useState<CategoryItem[]>(DEFAULT_CATEGORIES);
 
-  const categories = [
-    { name: "Electronics", image: "/catergories/electronics.png" },
-    { name: "Home", image: "/catergories/home.png" },
-    { name: "Home Improvement", image: "/catergories/home-improvement.png" },
-    { name: "Toys", image: "/catergories/toys.png" },
-    { name: "Sports, Fitness & Outdoors", image: "/catergories/sports.png" },
-    { name: "Patio & Garden", image: "/catergories/patio-garden.png" },
-    { name: "Furniture", image: "/catergories/furniture.png" },
-    { name: "Health & Beauty", image: "/catergories/health-beauty.png" },
-    { name: "Baby", image: "/catergories/baby.png" },
-    { name: "Pet Toys & Pet Supplies", image: "/catergories/pet-toys-pet-supplies.png" },
-    { name: "Automotive", image: "/catergories/automotive.png" },
-    { name: "Office", image: "/catergories/furniture-office.png" },
-  ];
+  useEffect(() => {
+    async function loadLiveCategories() {
+      try {
+        const res = await apiFetch<CategoryItem[]>('/categories');
+        const liveList = res.data as unknown as CategoryItem[];
+        if (Array.isArray(liveList) && liveList.length > 0) {
+          const mapped = liveList.map((cat) => ({
+            ...cat,
+            image: cat.imageUrl || getCategoryFallbackImage(cat.name, cat.slug),
+          }));
+          setDisplayCategories(mapped);
+        }
+      } catch (err) {
+        console.warn("Could not fetch live categories, using defaults:", err);
+      }
+    }
+
+    loadLiveCategories();
+  }, []);
 
   const handleScroll = () => {
     if (scrollContainerRef.current) {
@@ -81,22 +161,30 @@ export default function CategoryGrid() {
             onScroll={handleScroll}
             className="flex items-start gap-12 sm:gap-16 lg:gap-[4.5rem] overflow-x-auto scrollbar-hide pb-8 pt-2"
           >
-            {categories.map((category) => {
-              const categorySlug = category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            {displayCategories.map((category) => {
+              const imgSource = category.imageUrl || category.image || getCategoryFallbackImage(category.name, category.slug);
               return (
                 <Link 
                   href={`/products?category=${encodeURIComponent(category.name)}`}
-                  key={category.name} 
+                  key={category.id || category.name} 
                   className="flex flex-col items-center justify-start min-w-[80px] sm:min-w-[110px] cursor-pointer group shrink-0"
                 >
                   <div className="h-20 w-24 sm:h-24 sm:w-28 relative mb-5 transition-transform group-hover:scale-105">
-                    <Image 
-                      src={category.image} 
-                      alt={category.name} 
-                      fill
-                      sizes="(max-width: 640px) 100px, 120px" 
-                      className="object-contain mix-blend-multiply"
-                    />
+                    {imgSource.startsWith("http") ? (
+                      <img
+                        src={imgSource}
+                        alt={category.name}
+                        className="w-full h-full object-contain rounded-xl"
+                      />
+                    ) : (
+                      <Image 
+                        src={imgSource} 
+                        alt={category.name} 
+                        fill
+                        sizes="(max-width: 640px) 100px, 120px" 
+                        className="object-contain"
+                      />
+                    )}
                   </div>
                   <h3 className="text-[13px] font-[#333] text-center max-w-[130px] leading-snug group-hover:underline">
                     {category.name}

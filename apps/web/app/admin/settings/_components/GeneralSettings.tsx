@@ -1,13 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { createClient } from '../../../../lib/supabase/client';
 
 export function GeneralSettings() {
+  const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setEmail(user.email || '');
+      }
+    });
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-bold text-neutral-900">Store Profile</h3>
-        <p className="text-sm text-neutral-500 mb-4">Manage your store's public information and contact details.</p>
+        <p className="text-sm text-neutral-500 mb-4">Manage your store&apos;s public information and contact details.</p>
         
         <div className="bg-white border text-center border-neutral-200 rounded-2xl p-6  min-h-[200px]">
            <div className="space-y-4 text-left">
@@ -17,8 +29,8 @@ export function GeneralSettings() {
                      <input type="text" defaultValue="LiquidationPort" className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:bg-white text-sm transition-all" />
                   </div>
                   <div className="space-y-1.5">
-                     <label className="text-sm font-semibold text-neutral-900">Contact Email</label>
-                     <input type="email" defaultValue="support@liqport.com" className="w-full px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:bg-white text-sm transition-all" />
+                     <label className="text-sm font-semibold text-neutral-900">Admin / Contact Email</label>
+                     <input type="email" value={email || 'Loading...'} readOnly className="w-full px-3 py-2 bg-neutral-100 border border-neutral-200 rounded-xl text-neutral-500 focus:outline-none text-sm transition-all" />
                   </div>
               </div>
               

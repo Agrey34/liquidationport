@@ -7,16 +7,23 @@ import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('admins')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles('super_admin') // Restrict to super admins
+@Roles('admin', 'super_admin')
 export class AdminsController {
   constructor(private readonly adminsService: AdminsService) {}
 
+  @Get('dashboard-stats')
+  getDashboardStats() {
+    return this.adminsService.getDashboardStats();
+  }
+
   @Get()
+  @Roles('super_admin')
   findAll() {
     return this.adminsService.findAll();
   }
 
   @Get(':id')
+  @Roles('super_admin')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.adminsService.findOne(id);
   }

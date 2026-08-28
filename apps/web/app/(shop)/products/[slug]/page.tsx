@@ -1,369 +1,725 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, MapPin, Truck, ShieldCheck, Info,ShoppingCart,Heart,Barcode } from 'lucide-react';
+import {
+  Heart,
+  MapPin,
+  Truck,
+  ShieldCheck,
+  Info,
+  Barcode,
+  ArrowLeft,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+} from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useParams, useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
+import { getMediaUrl, DEFAULT_PRODUCT_FALLBACK } from '@/lib/image-url';
+import { useCart, useWishlist } from '@/lib/context/StoreContext';
+import { formatConditionLabel } from '@/lib/condition';
 
-// Mock Data for the Pallet
-const MOCK_PALLET = {
-  id: '942503',
-  title: '1 Pallet, 16 Pcs, Kitchen and Dining, All in One, Luggage, Camping and Hiking',
-  retailer: 'Walmart',
-  condition: 'Untested Customer Returns',
-  location: 'Bentonville, AR',
-  quantity: 16,
-  msrp: 1091.98,
-  price: 250.00,
-  shipping: 'Freight Shipping Arranged at Checkout',
-  lotSize: '1 Pallet',
-  dimensions: '73"x44"x47"/410lb',
-  images: [
-    'https://images.unsplash.com/photo-1542314831-c6a4d14effd0?q=80&w=800&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1590845947376-2638caa89309?q=80&w=800&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=800&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1583847268964-b28e5f884f67?q=80&w=800&auto=format&fit=crop',
-  ],
-  manifest: [
-    { manufacturer: 'Mainstays', productName: 'Mainstays 10-Piece Cookware Set', product: 'MS-CK10', condition: 'Untested Customer Returns', upc: '00850020141231', qty: 2, msrp: 49.99 },
-    { manufacturer: 'Ozark Trail', productName: 'Ozark Trail 8-Person Family Tent', product: 'OT-8FT', condition: 'Untested Customer Returns', upc: '00810012589012', qty: 1, msrp: 149.00 },
-    { manufacturer: 'Protege', productName: 'Protege 2-Piece Hard Side Luggage Set', product: 'PT-2PLG', condition: 'Damaged/Missing Parts', upc: '00741258963214', qty: 4, msrp: 89.00 },
-    { manufacturer: 'Keurig', productName: 'Keurig K-Express Coffee Maker', product: 'K-EXP', condition: 'Untested Customer Returns', upc: '00412587963254', qty: 3, msrp: 79.00 },
-    { manufacturer: 'Igloo', productName: 'Igloo 60 Quart Rolling Cooler', product: 'IG-60QT', condition: 'Damaged/Missing Parts', upc: '00852147963012', qty: 2, msrp: 55.00 },
-    { manufacturer: 'Farberware', productName: 'Farberware 15-Piece Knife Block Set', product: 'FW-15KNF', condition: 'Damaged/Missing Parts', upc: '00963258741025', qty: 4, msrp: 35.00 },
-  ],
-  description: "This pallet consists of a variety of kitchen and dining items, luggage, and outdoor gear sourced directly from Walmart customer returns. Items are sold AS-IS and have not been tested or inspected for functionality. Some boxes may show wear or be repackaged. Great selection of established brands."
-};
+interface ApiVariant {
+  id?: string;
+  sku?: string;
+  name?: string;
+  price?: number | string | null;
+  stock?: number | string | null;
+}
+
+interface ApiMedia {
+  id?: string;
+  url: string;
+  altText?: string | null;
+}
+
+interface ApiProductDetail {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  price: string | number;
+  stock: number;
+  condition?: string | null;
+  status?: string | null;
+  comparePrice?: number | string | null;
+  costPrice?: number | string | null;
+  sku?: string | null;
+  weight?: number | string | null;
+  manifest?: Array<{
+    manufacturer?: string;
+    productName?: string;
+    product?: string;
+    condition?: string;
+    upc?: string;
+    qty?: number;
+    msrp?: number;
+  }> | null;
+  createdAt: string;
+  category?: {
+    id: string;
+    name: string;
+  } | null;
+  variants?: ApiVariant[];
+  media?: ApiMedia[];
+}
+
+const DEFAULT_IMAGES = [
+  'https://images.unsplash.com/photo-1542314831-c6a4d14effd0?q=80&w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1590845947376-2638caa89309?q=80&w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=800&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1583847268964-b28e5f884f67?q=80&w=800&auto=format&fit=crop',
+];
 
 const TABS = ['Manifest', 'Overview', 'Shipping'];
 
 export default function ProductDetailsPage() {
+  const routeParams = useParams();
+  const rawSlug = routeParams?.slug || '';
+  const slug = typeof rawSlug === 'string' ? rawSlug : Array.isArray(rawSlug) ? rawSlug[0] : '';
+
+  const [product, setProduct] = useState<ApiProductDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
+  const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+
   const [activeImage, setActiveImage] = useState(0);
   const [activeTab, setActiveTab] = useState('Manifest');
   const [isAddedToCart, setIsAddedToCart] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [showAllDimensions, setShowAllDimensions] = useState(false);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [currentPage, setCurrentPage] = useState(1);
+
+  useEffect(() => {
+    async function loadProduct() {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await apiFetch<ApiProductDetail>(`/products/${slug}`);
+        const data =
+          res.data && 'data' in (res.data as unknown as Record<string, unknown>)
+            ? (res.data as unknown as { data: ApiProductDetail }).data
+            : res.data;
+
+        if (!data || !data.id) {
+          throw new Error('Product not found.');
+        }
+        setProduct(data);
+      } catch (err: unknown) {
+        console.error('Failed to load product detail:', err);
+        setError(err instanceof Error ? err.message : 'Unable to find this product.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (slug) {
+      loadProduct();
+    }
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex flex-col items-center justify-center gap-4 py-24">
+        <div className="w-10 h-10 border-4 border-neutral-200 border-t-neutral-900 rounded-full animate-spin" />
+        <p className="text-neutral-500 font-semibold text-sm">Loading product details...</p>
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white p-8 sm:p-12 rounded-2xl border border-neutral-200 shadow-sm max-w-md w-full">
+          <h2 className="text-2xl font-bold text-neutral-900 mb-2">Product Not Found</h2>
+          <p className="text-neutral-500 text-sm mb-6">
+            {error || 'The requested listing does not exist or has been removed.'}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-100 text-neutral-800 rounded-xl font-bold text-sm hover:bg-neutral-200 transition-colors cursor-pointer"
+            >
+              Retry
+            </button>
+            <Link
+              href="/products"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-neutral-900 text-white rounded-xl font-bold text-sm hover:bg-neutral-800 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" /> Live Inventory
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const rawPrice = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price || 0);
+  const msrpPrice = product.comparePrice ? Number(product.comparePrice) : Number((rawPrice * 1.4).toFixed(2));
+  const savings = Math.max(0, msrpPrice - rawPrice);
+  const images =
+    product.media && product.media.length > 0
+      ? product.media.map((m) => getMediaUrl(m.url))
+      : DEFAULT_IMAGES;
+  const currentImage = images[activeImage] || images[0] || DEFAULT_PRODUCT_FALLBACK;
+  const retailer = product.category?.name || 'General Merchandise';
+  const unitsCount = product.stock || (product.variants?.reduce((sum, v) => sum + Number(v.stock || 1), 0) ?? 1);
 
   const handleAddToCart = () => {
+    const primaryImg = images[0] || DEFAULT_PRODUCT_FALLBACK;
+    addToCart({
+      id: product.id,
+      title: product.name,
+      price: rawPrice,
+      img: primaryImg,
+      slug: product.slug,
+      retailer,
+      conditionGrade: product.condition || 'Customer Returns',
+      unitsCount,
+    });
     setIsAddedToCart(true);
     setTimeout(() => setIsAddedToCart(false), 2000);
   };
 
+  const handleToggleWishlist = () => {
+    const primaryImg = images[0] || DEFAULT_PRODUCT_FALLBACK;
+    toggleWishlist({
+      id: product.id,
+      title: product.name,
+      price: rawPrice,
+      msrp: msrpPrice,
+      img: primaryImg,
+      slug: product.slug,
+      retailer,
+      conditionGrade: product.condition || 'Customer Returns',
+      qty: unitsCount,
+      category: retailer,
+      status: product.status || 'Available',
+    });
+  };
+
+  const handleDownloadManifest = () => {
+    const headers = ['Manufacturer', 'Product Name', 'SKU', 'Condition', 'UPC', 'QTY', 'MSRP', 'EXT Price'];
+    const csvRows = [
+      headers.join(','),
+      ...manifestItems.map((item) =>
+        [
+          `"${(item.manufacturer || '').replace(/"/g, '""')}"`,
+          `"${(item.productName || '').replace(/"/g, '""')}"`,
+          `"${(item.product || '').replace(/"/g, '""')}"`,
+          `"${(item.condition || '').replace(/"/g, '""')}"`,
+          `"${(item.upc || '').replace(/"/g, '""')}"`,
+          item.qty,
+          item.msrp.toFixed(2),
+          (item.msrp * item.qty).toFixed(2),
+        ].join(',')
+      ),
+    ];
+
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${product.slug || 'pallet'}-manifest.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Derive manifest rows
+  const manifestItems =
+    product.manifest && Array.isArray(product.manifest) && product.manifest.length > 0
+      ? product.manifest.map((m, i) => ({
+          manufacturer: m.manufacturer || product.category?.name || 'Assorted Brands',
+          productName: m.productName || m.product || `${product.name} (Item ${i + 1})`,
+          product: m.product || `LOT-ITEM-${i + 1}`,
+          condition: m.condition || product.condition || 'Untested Customer Returns',
+          upc: m.upc || `00850020${1000 + i}`,
+          qty: Number(m.qty || 1),
+          msrp: m.msrp
+            ? Number(m.msrp)
+            : Number((rawPrice / Math.max(product.manifest?.length || 1, 1)).toFixed(2)),
+        }))
+      : product.variants && product.variants.length > 0
+      ? product.variants.map((v, i) => ({
+          manufacturer: product.category?.name || 'Assorted Brands',
+          productName: v.name || `${product.name} (Variant ${i + 1})`,
+          product: v.sku || `SKU-${i + 1}`,
+          condition: product.condition || 'Untested Customer Returns',
+          upc: `00850020${1000 + i}`,
+          qty: Number(v.stock || 1),
+          msrp: Number(v.price || rawPrice),
+        }))
+      : [
+          {
+            manufacturer: product.category?.name || 'Assorted Brands',
+            productName: product.name,
+            product: product.sku || product.slug?.toUpperCase().slice(0, 10) || 'GEN-SKU',
+            condition: product.condition || 'Untested Customer Returns',
+            upc: '008500201412',
+            qty: product.stock || 1,
+            msrp: msrpPrice,
+          },
+        ];
+
+  const totalManifestItems = manifestItems.length;
+  const totalPages = Math.ceil(totalManifestItems / rowsPerPage) || 1;
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = Math.min(currentPage * rowsPerPage, totalManifestItems);
+  const paginatedManifestItems = manifestItems.slice(startIndex, endIndex);
+
   return (
-    <div className="min-h-screen bg-neutral-50 pb-20">
+    <div className="min-h-screen bg-[#f8f9fa] pb-20">
       
-      {/* Breadcrumbs */}
-      <div className="bg-white border-b border-neutral-200 py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex items-center text-sm font-medium text-neutral-500 space-x-2">
-            <Link href="/" className="hover:text-primary transition-colors">Home</Link>
-            <ChevronRight className="w-4 h-4" />
-            <Link href="/products" className="hover:text-primary transition-colors">Pallets</Link>
-            <ChevronRight className="w-4 h-4" />
-            <span className="text-neutral-900 truncate max-w-[200px] sm:max-w-md">{MOCK_PALLET.title}</span>
-          </nav>
+      {/* ─── Top Breadcrumbs, Title & Lot ID ─── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 pb-4">
+        {/* Breadcrumbs */}
+        <div className="text-xs text-neutral-600 font-medium flex items-center gap-1.5 mb-1.5">
+          <Link href="/products" className="hover:underline text-neutral-600">
+            {retailer}
+          </Link>
+          <span>/</span>
+          <span className="text-neutral-600">Pallets</span>
+          <span>/</span>
+          <span className="text-neutral-900 font-semibold">{formatConditionLabel(product.condition)}</span>
         </div>
+
+        {/* Product Title */}
+        <h1 className="text-lg sm:text-xl font-bold text-neutral-900 leading-tight">
+          {product.name}
+        </h1>
+
+        {/* Lot ID */}
+        <p className="text-xs text-neutral-500 font-medium mt-1">
+          Lot ID: {product.sku || product.id.slice(0, 8)}
+        </p>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        
-        {/* Main Product Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-10">
+      {/* ─── Main Product Container Box ─── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="bg-white rounded-xl border border-neutral-200/90 shadow-2xs overflow-hidden">
           
-          {/* Left: Image Gallery  add to cart */ }
-          <div className="md:col-span-7 flex flex-row gap-4 h-[500px] lg:h-[600px]">
-            <div className="flex flex-col gap-3 w-20 sm:w-24 overflow-y-auto no-scrollbar shrink-0">
-              {MOCK_PALLET.images.map((imgUrl, i) => (
-                <button 
-                  key={i}
-                  onClick={() => setActiveImage(i)}
-                  className={`relative w-full aspect-square rounded-lg bg-white overflow-hidden transition-all duration-200 border flex items-center justify-center p-1 ${activeImage === i ? 'border-neutral-900 shadow-sm' : 'border-neutral-200 opacity-80 hover:opacity-100'}`}
-                >
-                  <Image src={imgUrl} alt={`Thumbnail ${i}`} fill unoptimized className="object-contain mix-blend-multiply" />
-                </button>
-              ))}
+          {/* Header Bar inside white card */}
+          <div className="flex items-center justify-between px-6 py-3.5 border-b border-neutral-100">
+            <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
+              <MapPin className="w-4 h-4 text-neutral-500 shrink-0" />
+              <span>Bentonville, AR</span>
             </div>
-            
-            {/* Main Image View */}
-            <motion.div 
-              layoutId={`image-gallery-main`}
-              key={activeImage}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              className={`flex-1 bg-white border border-neutral-200 rounded-xl flex items-center justify-center relative overflow-hidden group p-8 cursor-crosshair`}
-              onMouseMove={(e: React.MouseEvent<HTMLDivElement>) => {
-                const img = e.currentTarget.querySelector('img');
-                if (img) {
-                  const { left, top, width, height } = e.currentTarget.getBoundingClientRect();
-                  const x = ((e.clientX - left) / width) * 100;
-                  const y = ((e.clientY - top) / height) * 100;
-                  img.style.transformOrigin = `${x}% ${y}%`;
-                }
-              }}
-              onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => {
-                const img = e.currentTarget.querySelector('img');
-                if (img) {
-                  img.style.transformOrigin = 'center center';
-                }
-              }}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <Image 
-                fill={true}
-                src={MOCK_PALLET.images[activeImage]} 
-                alt="Main product" 
-                className="object-contain mix-blend-multiply transition-transform duration-300 ease-out group-hover:scale-[2] p-8" 
-              />
-            </motion.div>
+
+            <div className="flex items-center gap-1">
+              <span className="font-extrabold text-sm tracking-tight text-[#0071dc]">Walmart</span>
+              <span className="text-amber-500 text-base leading-none font-black">*</span>
+            </div>
           </div>
 
-          {/* Right: Info & Buy Box */}
-          <div className="md:col-span-5 flex flex-col gap-6">
+          {/* Card Body (2-Column Grid) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 lg:p-8">
             
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                 <span className="px-2.5 py-1 bg-neutral-100 text-neutral-700 text-xs font-bold rounded-md uppercase tracking-wider">Lot#{MOCK_PALLET.id}</span>
-                 <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-md uppercase tracking-wider">{MOCK_PALLET.retailer}</span>
+            {/* Left: Gallery (Thumbnails + Main Image) */}
+            <div className="lg:col-span-7 flex gap-4 items-start">
+              
+              {/* Thumbnail Strip */}
+              <div className="flex flex-col gap-2.5 w-14 sm:w-16 shrink-0 max-h-[460px] overflow-y-auto no-scrollbar">
+                {images.map((imgUrl, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setActiveImage(i)}
+                    className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-md bg-white overflow-hidden transition-all border flex items-center justify-center p-1 cursor-pointer ${
+                      activeImage === i
+                        ? 'border-neutral-900 ring-1 ring-neutral-900 shadow-2xs'
+                        : 'border-neutral-200 opacity-80 hover:opacity-100 hover:border-neutral-400'
+                    }`}
+                  >
+                    <Image
+                      src={imgUrl}
+                      alt={`Thumbnail ${i}`}
+                      fill
+                      unoptimized
+                      className="object-contain mix-blend-multiply"
+                      sizes="64px"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = DEFAULT_PRODUCT_FALLBACK;
+                      }}
+                    />
+                  </button>
+                ))}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-neutral-900 leading-tight">
-                {MOCK_PALLET.title}
-              </h1>
+
+              {/* Main Image View */}
+              <div className="flex-1 aspect-[4/3] bg-white rounded-lg flex items-center justify-center relative p-6 border border-neutral-100 overflow-hidden">
+                <Image
+                  src={currentImage}
+                  alt={product.name}
+                  fill
+                  priority
+                  loading="eager"
+                  unoptimized
+                  className="object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = DEFAULT_PRODUCT_FALLBACK;
+                  }}
+                />
+              </div>
             </div>
-            {/* Price & Action Card (Glassmorphic) */}
-            <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] mt-2">
-                  <div className="flex justify-between items-end mb-6">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-500 mb-1">Buy It Now Price</p>
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-black text-neutral-900">${MOCK_PALLET.price.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                      </div>
-                      <p className="text-emerald-600 text-sm font-semibold py-1">Save ${(MOCK_PALLET.msrp - MOCK_PALLET.price).toLocaleString()} off MSRP</p>
-                    </div>
+
+            {/* Right: Buy Box, Specs & Description */}
+            <div className="lg:col-span-5 flex flex-col justify-start">
+              
+              {/* ASK PRICE */}
+              <div className="mb-5">
+                <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                  ASK PRICE
+                </span>
+                <span className="text-3xl font-extrabold text-neutral-900">
+                  ${rawPrice.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              {/* Action Buttons (Bookmark + Add to Cart) - No Offer Button */}
+              <div className="flex items-center gap-3 mb-6">
+                
+                {/* Heart / Wishlist button */}
+                <button
+                  onClick={handleToggleWishlist}
+                  className={`h-11 w-11 shrink-0 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
+                    isInWishlist(product.id)
+                      ? 'bg-rose-50 border-rose-300 text-rose-600 shadow-2xs'
+                      : 'border-neutral-300 bg-white text-neutral-700 hover:text-rose-500 hover:border-rose-300 hover:bg-rose-50/50'
+                  }`}
+                  title={isInWishlist(product.id) ? 'Remove from Saved Pallets' : 'Save Pallet to Wishlist'}
+                >
+                  <Heart
+                    className={`w-5 h-5 transition-colors ${
+                      isInWishlist(product.id) ? 'fill-rose-500 text-rose-500' : 'text-neutral-700'
+                    }`}
+                  />
+                </button>
+
+                {/* Add to Cart Button */}
+                <button
+                  onClick={handleAddToCart}
+                  disabled={isAddedToCart}
+                  className={`flex-1 h-11 px-6 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer border ${
+                    isAddedToCart
+                      ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                      : 'border-[#18113c] text-[#18113c] bg-white hover:bg-[#18113c]/5 hover:shadow-2xs'
+                  }`}
+                >
+                  {isAddedToCart ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4" /> Added to Cart
+                    </>
+                  ) : (
+                    <>Add to cart</>
+                  )}
+                </button>
+              </div>
+
+              {/* Specs Grid */}
+              <div className="space-y-3.5 text-xs">
+                
+                {/* Row 1: EST. SAVINGS & MSRP */}
+                <div className="grid grid-cols-2 gap-4 pb-3.5 border-b border-neutral-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                      EST. SAVINGS
+                    </span>
+                    <span className="text-xs font-semibold text-emerald-600">
+                      {savings > 0
+                        ? `$${savings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                        : '-'}
+                    </span>
                   </div>
-
-                  <div className="space-y-3">
-                      <button  onClick={handleAddToCart} disabled={isAddedToCart}
-                        className={`w-full py-4 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 ${isAddedToCart ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' : 'bg-primary text-white shadow-lg shadow-primary/30 hover:bg-primary/95 hover:-translate-y-0.5'}`} >
-                        {isAddedToCart ? (
-                          <><ShieldCheck className="w-5 h-5" /> Added to Cart! </> ) : (
-                          <> <ShoppingCart className="w-5 h-5" /> Add to Cart </>
-                        )}
-      
-                      </button>
-                      <div className="flex gap-3">
-                        <button className="flex-1 py-3 px-6 rounded-xl font-bold bg-neutral-900 text-white hover:bg-neutral-800 transition-colors flex items-center justify-center gap-2">
-                            Buy Now
-                        </button>
-      
-                        <button className="p-3 rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all flex items-center justify-center">
-                          <Heart className="w-5 h-5" />
-                        </button>
-                      </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                      MSRP
+                    </span>
+                    <span className="text-xs font-semibold text-neutral-800">
+                      ${msrpPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
                   </div>
+                </div>
 
-                  <div className="mt-6 pt-5 border-t border-neutral-200/50 flex flex-col gap-2 text-sm text-neutral-600">
-                      <div className="flex items-center gap-2">
-                        <Truck className="w-4 h-4 text-primary" />
-                        <span>Ships nationwide via Freight. Calculated at checkout.</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                        <span>Secure checkout provided by Stripe.</span>
-                      </div>
+                {/* Row 2: LOT SIZE & UNITS */}
+                <div className="grid grid-cols-2 gap-4 pb-3.5 border-b border-neutral-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                      LOT SIZE
+                    </span>
+                    <span className="text-xs font-semibold text-neutral-800">
+                      {manifestItems.length > 1 ? `${Math.ceil(manifestItems.length / 10)} Pallets` : '1 Pallet'}
+                    </span>
                   </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                      UNITS
+                    </span>
+                    <span className="text-xs font-semibold text-neutral-800">{unitsCount}</span>
+                  </div>
+                </div>
+
+                {/* Row 3: CONDITION & DIMENSIONS/WEIGHTS */}
+                <div className="grid grid-cols-2 gap-4 pb-3.5">
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                      CONDITION
+                    </span>
+                    <span className="text-xs font-semibold text-neutral-800">
+                      {formatConditionLabel(product.condition)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider block mb-0.5">
+                      DIMENSIONS/WEIGHTS
+                    </span>
+                    <span className="text-xs font-semibold text-neutral-800 block">
+                      {product.weight ? `74"x72"x44" / ${product.weight}lb` : '74"x72"x44" / 750lb'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDimensions(!showAllDimensions)}
+                      className="text-[11px] font-bold text-[#18113c] hover:underline inline-flex items-center gap-1 mt-1 cursor-pointer"
+                    >
+                      <span>{showAllDimensions ? 'Hide' : `${manifestItems.length > 1 ? manifestItems.length : 14} more`}</span>
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform ${showAllDimensions ? 'rotate-180' : ''}`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Expanded Dimensions details */}
+                {showAllDimensions && (
+                  <div className="p-3 bg-neutral-50 rounded-lg text-[11px] text-neutral-600 space-y-1 mt-2 border border-neutral-100">
+                    <p className="font-semibold text-neutral-800">Pallet Breakdown:</p>
+                    <p>• Estimated Skid Dimensions: 48&quot;L x 40&quot;W x 72&quot;H</p>
+                    <p>• Total Freight Weight: {product.weight || 750} lbs (Class 125)</p>
+                    <p>• Forklift / Loading Dock Accessible: Yes</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Description Section */}
+              <div className="mt-6 pt-5 border-t border-neutral-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-bold text-neutral-900">Description</h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="text-xs font-bold text-[#18113c] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{isDescriptionExpanded ? 'Show less' : 'Show more'}</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 transition-transform ${isDescriptionExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </button>
+                </div>
+
+                <h4 className="text-xs font-bold text-neutral-800 mb-1">Customer Condition</h4>
+                <p className={`text-xs text-neutral-600 leading-relaxed ${isDescriptionExpanded ? '' : 'line-clamp-3'}`}>
+                  {product.description ||
+                    'Inventory consists of merchandise that has been tested and determined to be non-working, or products that show obvious signs of physical damage and/or are missing essential parts or accessories.'}
+                </p>
+              </div>
+
             </div>
-
-            {/* Detailed Specs (Matching Design) */}
-            <div className="border-t border-b border-neutral-200 py-5 grid grid-cols-2 gap-y-5">
-              <div>
-                <p className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase mb-0.5">MSRP</p>
-                <p className="text-[15px] font-medium text-neutral-900">${MOCK_PALLET.msrp.toLocaleString(undefined, {minimumFractionDigits: 0})}</p>
-              </div>
-              <div className="col-span-2 h-px bg-neutral-100"></div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase mb-0.5">Lot Size</p>
-                <p className="text-[15px] font-medium text-neutral-900">{MOCK_PALLET.lotSize}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase mb-0.5">Units</p>
-                <p className="text-[15px] font-medium text-neutral-900">{MOCK_PALLET.quantity}</p>
-              </div>
-              <div className="col-span-2 h-px bg-neutral-100"></div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase mb-0.5">Condition</p>
-                <p className="text-[15px] font-medium text-neutral-900">{MOCK_PALLET.condition}</p>
-              </div>
-              <div>
-                <p className="text-[10px] font-bold text-neutral-500 tracking-wider uppercase mb-0.5">Dimensions/Weights</p>
-                <p className="text-[15px] font-medium text-neutral-900">{MOCK_PALLET.dimensions}</p>
-              </div>
-            </div>
-
-            <div className="mt-2 text-sm text-neutral-700">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-bold text-neutral-900">Description</h3>
-                <button className="text-indigo-800 text-xs font-bold hover:underline">Show more ⌄</button>
-              </div>
-              <p className="font-semibold mb-2">Merchandise Condition:</p>
-              <p className="text-neutral-500 mb-4">Product is untested and in various cosmetic condition.</p>
-              <p className="font-semibold text-neutral-400">Disclaimer:</p>
-            </div>
-
-
           </div>
         </div>
 
-        {/* Information Tabs */}
-        <div className="mt-16 bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+        {/* ─── Information & Manifest Tabs ─── */}
+        <div className="mt-10 bg-white rounded-xl shadow-2xs border border-neutral-200/90 overflow-hidden">
           <div className="flex overflow-x-auto border-b border-neutral-200 no-scrollbar">
             {TABS.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`relative px-8 py-5 text-sm font-bold uppercase tracking-wider whitespace-nowrap transition-colors ${activeTab === tab ? 'text-primary' : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'}`}
+                className={`relative px-8 py-4 text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-colors cursor-pointer ${
+                  activeTab === tab
+                    ? 'text-[#18113c]'
+                    : 'text-neutral-500 hover:text-neutral-700 hover:bg-neutral-50'
+                }`}
               >
                 {tab}
                 {activeTab === tab && (
                   <motion.div
                     layoutId="activeTabIndicator"
-                    className="absolute bottom-0 left-0 right-0 h-1 bg-primary"
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#18113c]"
                     initial={false}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
                 )}
               </button>
             ))}
           </div>
 
-          <div className="p-6 md:p-10 min-h-[400px]">
+          <div className="p-6 md:p-8 min-h-[350px]">
             <AnimatePresence mode="wait">
-              
+              {/* Manifest Tab */}
+              {activeTab === 'Manifest' && (
+                <motion.div
+                  key="manifest"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4">
+                    <div>
+                      <h3 className="text-base font-bold text-neutral-900">Pallet Manifest</h3>
+                      <p className="text-xs text-neutral-500">Detailed breakdown of included items in this lot.</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={handleDownloadManifest}
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-[#18113c] text-[#18113c] hover:bg-[#18113c]/5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download full manifest</span>
+                      </button>
+                      <div className="bg-neutral-50 px-3.5 py-2 rounded-lg font-mono text-xs font-semibold text-neutral-700 border border-neutral-200 flex items-center gap-2">
+                        <Barcode className="w-4 h-4" />
+                        <span>Total Items: {unitsCount}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-neutral-200 shadow-2xs">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead className="bg-[#0071dc] text-white">
+                        <tr className="border-b border-blue-700">
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">Manufacturer</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">Product Name</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">SKU</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">Condition</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">UPC</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide text-center">QTY</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide text-right">MSRP</th>
+                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide text-right">EXT Price</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100 bg-white">
+                        {paginatedManifestItems.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-neutral-50/60 transition-colors">
+                            <td className="px-4 py-3 font-medium text-neutral-800">{item.manufacturer}</td>
+                            <td className="px-4 py-3 text-neutral-900 font-semibold">{item.productName}</td>
+                            <td className="px-4 py-3 font-mono text-neutral-500">{item.product}</td>
+                            <td className="px-4 py-3 text-neutral-600">{item.condition}</td>
+                            <td className="px-4 py-3 font-mono text-neutral-500">{item.upc}</td>
+                            <td className="px-4 py-3 text-center font-bold text-neutral-800">{item.qty}</td>
+                            <td className="px-4 py-3 text-right text-neutral-600">${item.msrp.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-neutral-900">
+                              ${(item.msrp * item.qty).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+
+                    {/* Functional Pagination Footer */}
+                    <div className="flex items-center justify-end gap-6 px-4 py-3 bg-white border-t border-neutral-200 text-xs text-neutral-600 select-none">
+                      <div className="flex items-center gap-2">
+                        <span>Rows per page:</span>
+                        <div className="relative inline-flex items-center">
+                          <select
+                            value={rowsPerPage}
+                            onChange={(e) => {
+                              setRowsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="appearance-none bg-transparent border-b border-neutral-400 pr-5 pl-1 py-0.5 text-xs font-semibold text-neutral-800 focus:outline-none focus:border-neutral-900 cursor-pointer"
+                          >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                            <option value={100}>100</option>
+                          </select>
+                          <ChevronDown className="w-3 h-3 text-neutral-600 absolute right-0.5 pointer-events-none" />
+                        </div>
+                      </div>
+
+                      <span className="font-medium text-neutral-800">
+                        {totalManifestItems === 0
+                          ? '0-0 of 0'
+                          : `${startIndex + 1}-${endIndex} of ${totalManifestItems}`}
+                      </span>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          disabled={currentPage <= 1}
+                          className="p-1.5 rounded-md hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-not-allowed"
+                          title="Previous page"
+                        >
+                          <ChevronLeft className="w-4 h-4 text-neutral-800" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          disabled={currentPage >= totalPages}
+                          className="p-1.5 rounded-md hover:bg-neutral-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer disabled:cursor-not-allowed"
+                          title="Next page"
+                        >
+                          <ChevronRight className="w-4 h-4 text-neutral-800" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex items-start gap-2 text-xs text-neutral-600 bg-neutral-50 p-3 rounded-lg border border-neutral-200">
+                    <Info className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
+                    <p>Manifests are provided for informational purposes. All wholesale liquidation lots are sold as-is.</p>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Overview Tab */}
               {activeTab === 'Overview' && (
                 <motion.div
                   key="overview"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
-                  className="max-w-3xl prose prose-neutral text-neutral-600"
+                  className="max-w-3xl prose prose-neutral text-neutral-600 text-sm"
                 >
-                  <h3 className="text-xl font-bold text-neutral-900 mb-4">Lot Information</h3>
-                  <p className="text-lg leading-relaxed">{MOCK_PALLET.description}</p>
-                  
-                  <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 pb-4 border-b border-neutral-100">
+                  <h3 className="text-base font-bold text-neutral-900 mb-3">Lot Information</h3>
+                  <p className="leading-relaxed">
+                    {product.description || 'Pallet consisting of overstock and liquidation items direct from retail facilities.'}
+                  </p>
+
+                  <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-6 pb-4 border-b border-neutral-100">
                     <div>
-                      <h4 className="font-bold text-neutral-900 mb-2">Facility Features</h4>
-                      <ul className="list-disc pl-5 space-y-1">
+                      <h4 className="font-bold text-neutral-900 mb-2 text-xs uppercase tracking-wider">
+                        Facility Features
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 text-xs">
                         <li>Forklift available for loading</li>
                         <li>Dock doors present</li>
                         <li>By appointment only</li>
                       </ul>
                     </div>
                     <div>
-                      <h4 className="font-bold text-neutral-900 mb-2">Packaging Details</h4>
-                      <ul className="list-disc pl-5 space-y-1">
+                      <h4 className="font-bold text-neutral-900 mb-2 text-xs uppercase tracking-wider">
+                        Packaging Details
+                      </h4>
+                      <ul className="list-disc pl-5 space-y-1 text-xs">
                         <li>Standard 48 x 40 Wooden Pallet</li>
-                        <li>Shrink-wrapped</li>
-                        <li>Approx. Weight: 240 lbs</li>
+                        <li>Shrink-wrapped and strapped</li>
+                        <li>Approx. Weight: {product.weight ? `${product.weight} lbs` : '250 - 750 lbs'}</li>
                       </ul>
                     </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Manifest Tab */}
-              {activeTab === 'Manifest' && (
-                <motion.div
-                  key="manifest"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-neutral-900">Pallet Manifest</h3>
-                      <p className="text-sm text-neutral-500">Detailed breakdown of included items.</p>
-                    </div>
-                    <div className="bg-neutral-100 px-4 py-2 rounded-lg font-mono text-sm text-neutral-700 border border-neutral-200 flex items-center gap-2">
-                       <Barcode className="w-4 h-4"/> 
-                       <span>Total Items: {MOCK_PALLET.quantity}</span>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto rounded-xl border border-neutral-200">
-                    <table className="w-full text-left border-collapse text-sm">
-                      <thead>
-                        <tr className="border-b border-neutral-200">
-                          <th className="px-4 py-3 text-xs font-bold text-neutral-700">
-                            Manufacturer
-                            <span className="ml-1 text-neutral-400">↑</span>
-                          </th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">Product Name</th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">Product</th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">Condition</th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500">UPC</th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500 text-center">QTY</th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500 text-right">MSRP</th>
-                          <th className="px-4 py-3 text-xs font-medium text-neutral-500 text-right">EXT MSRP</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100 bg-white">
-                        {MOCK_PALLET.manifest.map((item, idx) => (
-                          <tr key={idx} className="hover:bg-neutral-50 transition-colors">
-                            <td className="px-4 py-3 text-sm font-medium text-neutral-800">{item.manufacturer}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-900 font-semibold">{item.productName}</td>
-                            <td className="px-4 py-3 text-xs font-mono text-neutral-500">{item.product}</td>
-                            <td className="px-4 py-3 text-sm text-neutral-600">{item.condition}</td>
-                            <td className="px-4 py-3 font-mono text-xs text-neutral-500">{item.upc}</td>
-                            <td className="px-4 py-3 text-sm text-center font-bold text-neutral-800">{item.qty}</td>
-                            <td className="px-4 py-3 text-sm text-right text-neutral-600">${item.msrp.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-sm text-right font-bold text-neutral-900">${(item.msrp * item.qty).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                          </tr>
-                        ))}
-                        {/* Totals */}
-                        <tr className="border-t-2 border-neutral-200 bg-neutral-50 font-bold text-neutral-900">
-                          <td colSpan={4} className="px-4 py-3"></td>
-                          <td className="px-4 py-3 text-xs font-semibold text-neutral-500 uppercase tracking-wider text-right">Totals</td>
-                          <td className="px-4 py-3 text-center">{MOCK_PALLET.quantity}</td>
-                          <td className="px-4 py-3 text-right text-neutral-400">--</td>
-                          <td className="px-4 py-3 text-right">${MOCK_PALLET.msrp.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Download button */}
-                  <div className="flex justify-center mt-5">
-                    <a
-                      href="#"
-                      onClick={e => {
-                        e.preventDefault();
-                        const headers = ['Manufacturer','Product Name','Product','Condition','UPC','QTY','MSRP','EXT MSRP'];
-                        const rows = MOCK_PALLET.manifest.map(r => [
-                          r.manufacturer, r.productName, r.product, r.condition, r.upc, String(r.qty),
-                          `$${r.msrp.toFixed(2)}`, `$${(r.msrp * r.qty).toFixed(2)}`
-                        ]);
-                        const csv = [headers,...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
-                        const blob = new Blob([csv], { type: 'text/csv' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url; a.download = 'pallet-manifest.csv'; a.click();
-                        URL.revokeObjectURL(url);
-                      }}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 border border-neutral-300 rounded-xl text-sm font-semibold text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 transition-all"
-                    >
-                      <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                      </svg>
-                      Download full manifest
-                    </a>
-                  </div>
-                  
-                  <div className="mt-4 flex items-start gap-2 text-xs text-rose-600 bg-rose-50 p-3 rounded-lg border border-rose-100">
-                    <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                    <p>Manifests are provided for informational purposes. The actual items, conditions, and quantities may vary slightly. Liquidation sales are final.</p>
                   </div>
                 </motion.div>
               )}
@@ -372,36 +728,39 @@ export default function ProductDetailsPage() {
               {activeTab === 'Shipping' && (
                 <motion.div
                   key="shipping"
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
+                  exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                   className="max-w-3xl"
                 >
-                  <h3 className="text-xl font-bold text-neutral-900 mb-6">Shipping & Pickup Information</h3>
-                  
-                  <div className="space-y-6">
+                  <h3 className="text-base font-bold text-neutral-900 mb-5">Shipping & Pickup Information</h3>
+
+                  <div className="space-y-5">
                     <div className="flex gap-4">
-                      <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center shrink-0">
-                        <Truck className="w-6 h-6" />
+                      <div className="w-10 h-10 bg-neutral-100 text-neutral-800 rounded-lg flex items-center justify-center shrink-0">
+                        <Truck className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-neutral-900 text-lg">Freight Shipping</h4>
-                        <p className="text-neutral-600 mt-1">We partner with top-tier LTL freight carriers to offer nationwide delivery. Shipping rates are calculated at checkout based on the delivery zip code and facility requirements (e.g., liftgate needs, residential vs commercial).</p>
+                        <h4 className="font-bold text-neutral-900 text-sm">Freight Shipping</h4>
+                        <p className="text-neutral-600 mt-1 text-xs leading-relaxed">
+                          We partner with top-tier LTL freight carriers to offer nationwide delivery. Shipping rates are calculated at checkout based on the delivery zip code and facility requirements (liftgate, residential, etc.).
+                        </p>
                       </div>
                     </div>
-                    
+
                     <div className="flex gap-4">
-                      <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shrink-0">
-                        <MapPin className="w-6 h-6" />
+                      <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center shrink-0">
+                        <MapPin className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-neutral-900 text-lg">Buyer Arranged Pickup</h4>
-                        <p className="text-neutral-600 mt-1">You may choose to arrange your own freight or pick up the pallet yourself. Once payment clears, our operations team will contact you to schedule an appointment. A valid BOL (Bill of Lading) must be provided 24 hours prior to pickup if using a third-party carrier.</p>
+                        <h4 className="font-bold text-neutral-900 text-sm">Buyer Arranged Pickup</h4>
+                        <p className="text-neutral-600 mt-1 text-xs leading-relaxed">
+                          You may arrange your own freight carrier or pick up the pallet directly from the facility once payment clears.
+                        </p>
                       </div>
                     </div>
                   </div>
-                  
                 </motion.div>
               )}
             </AnimatePresence>

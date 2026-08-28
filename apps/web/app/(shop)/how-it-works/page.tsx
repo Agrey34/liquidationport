@@ -102,7 +102,7 @@ export default function HowItWorksPage() {
             {/* Benefit 1 */}
             <div className="flex flex-col items-center text-center">
               <div className="w-20 h-20 mb-6 relative">
-                 <Image src="/icons/handshake.svg" alt="Source direct" fill className="object-contain" />
+                 <Image src="/icons/handshake.svg" alt="Source direct" fill className="object-contain" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Source liquidation inventory direct</h3>
               <p className="text-gray-600 leading-relaxed text-[15px]">
@@ -113,7 +113,7 @@ export default function HowItWorksPage() {
             {/* Benefit 2 */}
             <div className="flex flex-col items-center text-center">
               <div className="w-20 h-20 mb-6 relative">
-                 <Image src="/icons/money-under-loupe.svg" alt="Price transparency" fill className="object-contain" />
+                 <Image src="/icons/money-under-loupe.svg" alt="Price transparency" fill className="object-contain" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Price transparency</h3>
               <p className="text-gray-600 leading-relaxed text-[15px]">
@@ -124,7 +124,7 @@ export default function HowItWorksPage() {
             {/* Benefit 3 */}
             <div className="flex flex-col items-center text-center">
               <div className="w-20 h-20 mb-6 relative">
-                 <Image src="/icons/money-in-hand.svg" alt="Buy on your terms" fill className="object-contain" />
+                 <Image src="/icons/money-in-hand.svg" alt="Buy on your terms" fill className="object-contain" sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Buy on your terms</h3>
               <p className="text-gray-600 leading-relaxed text-[15px]">

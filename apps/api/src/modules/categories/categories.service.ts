@@ -1,10 +1,36 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CategoriesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storageService: StorageService,
+  ) {}
+
+  async uploadImage(file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    if (!file.mimetype?.startsWith('image/')) {
+      throw new BadRequestException('Uploaded file must be an image');
+    }
+
+    // Upload to Cloudflare R2 categories/ folder
+    const uploadResult = await this.storageService.uploadPublicAsset(file, 'category');
+    this.logger.log(`Category image uploaded to R2 categories/ folder: ${uploadResult.url}`);
+
+    return {
+      url: uploadResult.url,
+      key: uploadResult.key,
+      folder: uploadResult.folder,
+      bucket: uploadResult.bucket,
+    };
+  }
 
   async create(createCategoryDto: CreateCategoryDto) {
     const existing = await this.prisma.category.findUnique({
@@ -23,6 +49,11 @@ export class CategoriesService {
   async findAll() {
     return this.prisma.category.findMany({
       orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { products: true },
+        },
+      },
     });
   }
 

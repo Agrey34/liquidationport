@@ -23,17 +23,22 @@ export class ShipmentsService {
       throw new NotFoundException('Order not found');
     }
 
-    // Update order status to shipped
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: { status: 'shipped' },
-    });
+    // Update order status to shipped and create shipment inside a transaction
+    return this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: 'shipped' },
+      });
 
-    return this.prisma.shipment.create({
-      data: {
-        ...createShipmentDto,
-        shippedAt: new Date(),
-      },
+      return tx.shipment.create({
+        data: {
+          ...createShipmentDto,
+          shippedAt: new Date(),
+        },
+      });
+    }, {
+      maxWait: 15000,
+      timeout: 20000,
     });
   }
 
@@ -73,15 +78,20 @@ export class ShipmentsService {
       throw new NotFoundException('Shipment not found');
     }
 
-    // Update order status to delivered
-    await this.prisma.order.update({
-      where: { id: shipment.orderId },
-      data: { status: 'delivered' },
-    });
+    // Update order status to delivered and update shipment inside a transaction
+    return this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: shipment.orderId },
+        data: { status: 'delivered' },
+      });
 
-    return this.prisma.shipment.update({
-      where: { id },
-      data: { deliveredAt: new Date() },
+      return tx.shipment.update({
+        where: { id },
+        data: { deliveredAt: new Date() },
+      });
+    }, {
+      maxWait: 15000,
+      timeout: 20000,
     });
   }
 }

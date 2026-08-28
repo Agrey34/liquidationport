@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import api from '../../../lib/api';
+import { createClient } from '../../../lib/supabase/client';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -37,107 +39,6 @@ interface AppUser {
 type SortKey = 'name' | 'joinedAt' | 'orderCount' | 'totalSpent' | 'lastSeen';
 type SortDir  = 'asc' | 'desc';
 type TabFilter = 'all' | 'customer' | 'admin' | 'suspended';
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MOCK_USERS: AppUser[] = [
-  {
-    id: 'USR-001', name: 'Liam Johnson', email: 'liam.johnson@email.com', phone: '+1 (555) 234-7890',
-    location: 'Houston, TX', role: 'customer', status: 'active', joinedAt: 'Jan 5, 2025',
-    lastSeen: '2 hours ago', orderCount: 14, totalSpent: 18240.00, avatarColor: 'bg-blue-600',
-    initials: 'LJ', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Placed order #ORD-7645', timestamp: '2 hours ago', ip: '192.168.1.10', device: 'Chrome / macOS' },
-      { action: 'Updated billing address', timestamp: '3 days ago', ip: '192.168.1.10', device: 'Chrome / macOS' },
-      { action: 'Logged in', timestamp: '3 days ago', ip: '192.168.1.10', device: 'Chrome / macOS' },
-    ],
-  },
-  {
-    id: 'USR-002', name: 'Olivia Smith', email: 'olivia.smith@biz.com', phone: '+1 (555) 876-4321',
-    location: 'New York, NY', role: 'customer', status: 'active', joinedAt: 'Feb 12, 2025',
-    lastSeen: 'Yesterday', orderCount: 8, totalSpent: 9750.50, avatarColor: 'bg-purple-600',
-    initials: 'OS', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Placed order #ORD-7640', timestamp: 'Yesterday', ip: '10.0.0.5', device: 'Safari / iOS' },
-      { action: 'Logged in', timestamp: 'Yesterday', ip: '10.0.0.5', device: 'Safari / iOS' },
-    ],
-  },
-  {
-    id: 'USR-003', name: 'Noah Williams', email: 'noah.w@example.net', phone: '+1 (555) 333-1122',
-    location: 'Chicago, IL', role: 'admin', status: 'active', joinedAt: 'Mar 1, 2024',
-    lastSeen: '1 hour ago', orderCount: 0, totalSpent: 0, avatarColor: 'bg-emerald-600',
-    initials: 'NW', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Approved payout for vendor #V-03', timestamp: '1 hour ago', ip: '172.16.0.1', device: 'Firefox / Windows' },
-      { action: 'Updated product #PRD-008 status', timestamp: '3 hours ago', ip: '172.16.0.1', device: 'Firefox / Windows' },
-    ],
-  },
-  {
-    id: 'USR-004', name: 'Emma Brown', email: 'emma.b@liquidco.com', phone: '+1 (555) 901-2233',
-    location: 'Los Angeles, CA', role: 'customer', status: 'suspended', joinedAt: 'Nov 20, 2024',
-    lastSeen: '5 days ago', orderCount: 3, totalSpent: 1850.00, avatarColor: 'bg-rose-500',
-    initials: 'EB', flagged: true, verifiedEmail: true,
-    activity: [
-      { action: 'Chargeback filed on #ORD-7210', timestamp: '5 days ago', ip: '203.0.113.45', device: 'Chrome / Android' },
-      { action: 'Multiple failed login attempts', timestamp: '6 days ago', ip: '203.0.113.45', device: 'Unknown' },
-    ],
-  },
-  {
-    id: 'USR-005', name: 'Ava Jones', email: 'ava.jones@resale.io', phone: '+1 (555) 447-8800',
-    location: 'Miami, FL', role: 'customer', status: 'active', joinedAt: 'Apr 1, 2025',
-    lastSeen: '30 min ago', orderCount: 21, totalSpent: 31600.00, avatarColor: 'bg-orange-500',
-    initials: 'AJ', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Placed order #ORD-7652', timestamp: '30 min ago', ip: '198.51.100.22', device: 'Chrome / Windows' },
-      { action: 'Placed order #ORD-7649', timestamp: '2 days ago', ip: '198.51.100.22', device: 'Chrome / Windows' },
-    ],
-  },
-  {
-    id: 'USR-006', name: 'James Martinez', email: 'j.martinez@buyclub.com', phone: '+1 (555) 665-3300',
-    location: 'Dallas, TX', role: 'customer', status: 'pending', joinedAt: 'Apr 15, 2025',
-    lastSeen: 'Just now', orderCount: 0, totalSpent: 0, avatarColor: 'bg-sky-600',
-    initials: 'JM', flagged: false, verifiedEmail: false,
-    activity: [
-      { action: 'Account created', timestamp: 'Just now', ip: '192.0.2.88', device: 'Safari / macOS' },
-    ],
-  },
-  {
-    id: 'USR-007', name: 'Sophia Taylor', email: 'sophia.t@palletking.com', phone: '+1 (555) 772-4455',
-    location: 'Phoenix, AZ', role: 'customer', status: 'banned', joinedAt: 'Aug 12, 2024',
-    lastSeen: '2 months ago', orderCount: 2, totalSpent: 590.00, avatarColor: 'bg-stone-500',
-    initials: 'ST', flagged: true, verifiedEmail: true,
-    activity: [
-      { action: 'Account banned for fraud', timestamp: '2 months ago', ip: '10.10.10.10', device: 'Unknown' },
-    ],
-  },
-  {
-    id: 'USR-008', name: 'Isabella Anderson', email: 'isabella.a@resellers.net', phone: '+1 (555) 884-6677',
-    location: 'Seattle, WA', role: 'customer', status: 'active', joinedAt: 'Dec 3, 2024',
-    lastSeen: 'Yesterday', orderCount: 6, totalSpent: 7200.00, avatarColor: 'bg-teal-600',
-    initials: 'IA', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Placed order #ORD-7638', timestamp: 'Yesterday', ip: '172.31.0.5', device: 'Edge / Windows' },
-    ],
-  },
-  {
-    id: 'USR-009', name: 'Mason Lee', email: 'mason.l@buyrights.co', phone: '+1 (555) 229-5544',
-    location: 'Denver, CO', role: 'admin', status: 'active', joinedAt: 'Jan 15, 2024',
-    lastSeen: '4 hours ago', orderCount: 0, totalSpent: 0, avatarColor: 'bg-indigo-600',
-    initials: 'ML', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Reviewed flagged user USR-004', timestamp: '4 hours ago', ip: '192.168.100.1', device: 'Chrome / Windows' },
-    ],
-  },
-  {
-    id: 'USR-010', name: 'Ethan Garcia', email: 'ethan.g@stockport.us', phone: '+1 (555) 112-8899',
-    location: 'Austin, TX', role: 'customer', status: 'active', joinedAt: 'Mar 22, 2025',
-    lastSeen: '6 hours ago', orderCount: 4, totalSpent: 4100.00, avatarColor: 'bg-violet-600',
-    initials: 'EG', flagged: false, verifiedEmail: true,
-    activity: [
-      { action: 'Placed order #ORD-7644', timestamp: '6 hours ago', ip: '10.20.30.40', device: 'Chrome / macOS' },
-    ],
-  },
-];
 
 const PAGE_SIZE = 8;
 
@@ -194,6 +95,7 @@ function RowMenu({
   onBan,
   onDelete,
   onReactivate,
+  onChangeRole,
 }: {
   user: AppUser;
   onView: () => void;
@@ -201,14 +103,16 @@ function RowMenu({
   onBan: () => void;
   onDelete: () => void;
   onReactivate: () => void;
+  onChangeRole: (role: UserRole) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const wrap = (fn: () => void) => { fn(); setOpen(false); };
+  const [showRoles, setShowRoles] = useState(false);
+  const wrap = (fn: () => void) => { fn(); setOpen(false); setShowRoles(false); };
 
   return (
     <div className="relative" id={`user-menu-${user.id}`}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={() => { setOpen(!open); setShowRoles(false); }}
         className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-400 hover:text-neutral-700 transition-colors"
       >
         <i className="fi fi-rr-menu-dots text-lg flex items-center justify-center shrink-0" />
@@ -216,32 +120,53 @@ function RowMenu({
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-8 z-20 w-52 bg-white border border-neutral-200 rounded-xl shadow-xl py-1.5 overflow-hidden">
+          <div className="absolute right-0 top-8 z-20 w-56 bg-white border border-neutral-200 rounded-xl shadow-xl py-1.5 overflow-hidden">
             <button onClick={() => wrap(onView)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors">
-              <i className="fi fi-rr-eye text-lg text-neutral-400 flex items-center justify-center shrink-0" /> View Profile
+              <i className="fi fi-rr-eye text-base text-neutral-400 flex items-center justify-center shrink-0" /> View Profile
             </button>
-            <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors">
-              <i className="fi fi-rr-envelope text-lg text-neutral-400 flex items-center justify-center shrink-0" /> Send Email
+            <button 
+              onClick={() => setShowRoles(!showRoles)} 
+              className="w-full flex items-center justify-between px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors"
+            >
+              <span className="flex items-center gap-2.5">
+                <i className="fi fi-rr-user-gear text-base text-neutral-400 flex items-center justify-center shrink-0" /> Change Role
+              </span>
+              <i className={`fi fi-rr-angle-right text-xs text-neutral-400 transition-transform ${showRoles ? 'rotate-90' : ''}`} />
             </button>
-            <button className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors">
-              <i className="fi fi-rr-user-gear text-lg text-neutral-400 flex items-center justify-center shrink-0" /> Change Role
-            </button>
+
+            {showRoles && (
+              <div className="px-2 py-1 bg-neutral-50 border-y border-neutral-100 space-y-0.5">
+                {(['customer', 'admin', 'super_admin'] as UserRole[]).map(r => (
+                  <button
+                    key={r}
+                    onClick={() => wrap(() => onChangeRole(r))}
+                    className={`w-full text-left px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center justify-between ${
+                      user.role === r ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-200/60'
+                    }`}
+                  >
+                    <span className="capitalize">{r.replace('_', ' ')}</span>
+                    {user.role === r && <i className="fi fi-rr-check text-xs" />}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="my-1 border-t border-neutral-100" />
             {user.status === 'active' ? (
               <button onClick={() => wrap(onSuspend)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 transition-colors">
-                <i className="fi fi-rr-delete-user text-lg flex items-center justify-center shrink-0" /> Suspend User
+                <i className="fi fi-rr-delete-user text-base flex items-center justify-center shrink-0" /> Suspend User
               </button>
             ) : (
               <button onClick={() => wrap(onReactivate)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors">
-                <i className="fi fi-rr-refresh text-lg flex items-center justify-center shrink-0" /> Reactivate
+                <i className="fi fi-rr-refresh text-base flex items-center justify-center shrink-0" /> Reactivate
               </button>
             )}
             <button onClick={() => wrap(onBan)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
-              <i className="fi fi-rr-ban text-lg flex items-center justify-center shrink-0" /> Ban User
+              <i className="fi fi-rr-ban text-base flex items-center justify-center shrink-0" /> Ban User
             </button>
             <div className="my-1 border-t border-neutral-100" />
             <button onClick={() => wrap(onDelete)} className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition-colors">
-              <i className="fi fi-rr-trash text-lg flex items-center justify-center shrink-0" /> Delete Account
+              <i className="fi fi-rr-trash text-base flex items-center justify-center shrink-0" /> Delete Account
             </button>
           </div>
         </>
@@ -387,7 +312,7 @@ function UserDrawer({ user, onClose, onStatusChange }: {
                   <p className="text-sm">No activity recorded yet.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[380px] overflow-y-auto pr-1 custom-scrollbar">
                   {user.activity.map((evt, i) => (
                     <div key={i} className="flex gap-3 items-start">
                       <div className="w-2 h-2 rounded-full bg-neutral-300 shrink-0 mt-1.5" />
@@ -448,7 +373,9 @@ function UserDrawer({ user, onClose, onStatusChange }: {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const [users, setUsers]             = useState<AppUser[]>(MOCK_USERS);
+  const [users, setUsers]             = useState<AppUser[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
   const [search, setSearch]           = useState('');
   const [tabFilter, setTabFilter]     = useState<TabFilter>('all');
   const [statusFilter, setStatusFilter] = useState<UserStatus | 'All'>('All');
@@ -458,11 +385,58 @@ export default function UsersPage() {
   const [drawerUser, setDrawerUser]   = useState<AppUser | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Fetch logic
+  const fetchUsers = useCallback(async () => {
+    try {
+      const data = await api.get<AppUser[]>('/users');
+      setUsers(data || []);
+      setDrawerUser(prev => {
+        if (!prev) return null;
+        return data.find(u => u.id === prev.id) ?? prev;
+      });
+    } catch (err) {
+      setError((err as Error).message || 'Failed to fetch users');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Supabase Realtime Subscription
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel('users-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'users',
+        },
+        () => {
+          fetchUsers();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchUsers]);
+
   // ── KPIs ──────────────────────────────────────────────────────────────────
   const totalUsers     = users.length;
   const activeUsers    = users.filter(u => u.status === 'active').length;
   const suspendedUsers = users.filter(u => u.status === 'suspended' || u.status === 'banned').length;
-  const newThisMonth   = users.filter(u => u.joinedAt.includes('Apr')).length;
+  const newThisMonth   = users.filter(u => {
+    const d = new Date(u.joinedAt);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
   const flaggedCount   = users.filter(u => u.flagged).length;
 
   // ── Filter + Sort ─────────────────────────────────────────────────────────
@@ -512,23 +486,97 @@ export default function UsersPage() {
     });
   };
   const toggleOne = (id: string) => {
-    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   // ── Status Changes ────────────────────────────────────────────────────────
-  const changeStatus = (id: string, status: UserStatus) => {
-    setUsers(prev => prev.map(u => u.id === id ? { ...u, status } : u));
-    if (drawerUser?.id === id) setDrawerUser(prev => prev ? { ...prev, status } : null);
+  const changeStatus = async (id: string, status: UserStatus) => {
+    try {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, status, flagged: status === 'suspended' || status === 'banned' } : u));
+      if (drawerUser?.id === id) setDrawerUser(prev => prev ? { ...prev, status, flagged: status === 'suspended' || status === 'banned' } : null);
+      
+      await api.patch(`/users/${id}/status`, { status });
+    } catch (err) {
+      console.error('Failed to change status:', err);
+      fetchUsers();
+    }
   };
 
-  const handleBulkSuspend = () => {
-    setUsers(prev => prev.map(u => selected.has(u.id) ? { ...u, status: 'suspended' } : u));
-    setSelected(new Set());
+  const changeRole = async (id: string, role: UserRole) => {
+    try {
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, role } : u));
+      if (drawerUser?.id === id) setDrawerUser(prev => prev ? { ...prev, role } : null);
+      await api.patch(`/users/${id}/role`, { role });
+    } catch (err) {
+      console.error('Failed to change role:', err);
+      fetchUsers();
+    }
   };
 
-  const handleBulkDelete = () => {
-    setUsers(prev => prev.filter(u => !selected.has(u.id)));
-    setSelected(new Set());
+  const handleBulkSuspend = async () => {
+    const ids = Array.from(selected);
+    try {
+      setUsers(prev => prev.map(u => selected.has(u.id) ? { ...u, status: 'suspended', flagged: true } : u));
+      setSelected(new Set());
+      await Promise.all(ids.map(id => api.patch(`/users/${id}/status`, { status: 'suspended' })));
+    } catch (err) {
+      console.error('Failed bulk suspend:', err);
+      fetchUsers();
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selected);
+    try {
+      setUsers(prev => prev.filter(u => !selected.has(u.id)));
+      setSelected(new Set());
+      await Promise.all(ids.map(id => api.delete(`/users/${id}`)));
+    } catch (err) {
+      console.error('Failed bulk delete:', err);
+      fetchUsers();
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      setUsers(prev => prev.filter(u => u.id !== id));
+      if (drawerUser?.id === id) setDrawerUser(null);
+      await api.delete(`/users/${id}`);
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+      fetchUsers();
+    }
+  };
+
+  const exportCSV = () => {
+    if (users.length === 0) return;
+    const headers = ['User ID', 'Name', 'Email', 'Role', 'Status', 'Orders', 'Total Spent', 'Joined At'];
+    const rows = users.map(u => [
+      u.id,
+      `"${u.name}"`,
+      `"${u.email}"`,
+      u.role,
+      u.status,
+      u.orderCount,
+      u.totalSpent,
+      `"${u.joinedAt}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `users_export_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const TABS: { key: TabFilter; label: string; count: number }[] = [
@@ -540,6 +588,23 @@ export default function UsersPage() {
 
   const STATUSES: Array<UserStatus | 'All'> = ['All', 'active', 'suspended', 'pending', 'banned'];
 
+  if (error) {
+    return (
+      <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <i className="fi fi-rr-triangle-warning text-xl"></i>
+          <span>{error}</span>
+        </div>
+        <button
+          onClick={fetchUsers}
+          className="text-xs font-bold underline hover:no-underline ml-4"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -547,13 +612,22 @@ export default function UsersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-neutral-900">User Management</h2>
-          <p className="text-neutral-500 mt-1 text-sm">Monitor, manage, and secure all platform accounts.</p>
+          <p className="text-neutral-500 mt-1 text-sm">Monitor, manage, and secure all platform accounts live.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            className="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-50 transition-colors shadow-sm"
+            onClick={exportCSV}
+            disabled={users.length === 0}
+            className="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-50 transition-colors shadow-sm disabled:opacity-50"
           >
             <i className="fi fi-rr-download text-lg flex items-center justify-center shrink-0" /> Export CSV
+          </button>
+          <button
+            onClick={fetchUsers}
+            disabled={loading}
+            className="inline-flex items-center gap-2 bg-neutral-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-800 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <i className={`fi fi-rr-refresh text-base ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
           {flaggedCount > 0 && (
             <button
@@ -658,19 +732,6 @@ export default function UsersPage() {
                 {r === 'all' ? 'All Roles' : r}
               </button>
             ))}
-            <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider ml-4">Flag:</span>
-            <button
-              onClick={() => {
-                setSearch('');
-                setUsers(prev => [...prev].filter(u => u.flagged).length > 0
-                  ? prev.filter(u => u.flagged)
-                  : MOCK_USERS
-                );
-              }}
-              className="px-3 py-1 rounded-full text-xs font-semibold transition-all bg-white border border-neutral-200 text-neutral-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200"
-            >
-              Flagged Only
-            </button>
           </div>
         )}
 
@@ -746,7 +807,28 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {paged.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-3.5"><div className="w-4 h-4 bg-neutral-200 rounded" /></td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 bg-neutral-200 rounded-xl shrink-0" />
+                        <div className="space-y-1.5 flex-1">
+                          <div className="w-24 h-3.5 bg-neutral-200 rounded" />
+                          <div className="w-32 h-3 bg-neutral-200 rounded" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3.5"><div className="w-16 h-5 bg-neutral-200 rounded-full" /></td>
+                    <td className="px-4 py-3.5"><div className="w-16 h-5 bg-neutral-200 rounded-full" /></td>
+                    <td className="px-4 py-3.5"><div className="w-10 h-4 bg-neutral-200 rounded ml-auto" /></td>
+                    <td className="px-4 py-3.5"><div className="w-14 h-4 bg-neutral-200 rounded ml-auto" /></td>
+                    <td className="px-4 py-3.5"><div className="w-20 h-4 bg-neutral-200 rounded" /></td>
+                    <td className="px-4 py-3.5 text-right"><div className="w-8 h-8 bg-neutral-200 rounded-lg ml-auto" /></td>
+                  </tr>
+                ))
+              ) : paged.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -784,14 +866,14 @@ export default function UsersPage() {
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <p className="font-semibold text-neutral-900 truncate max-w-[160px]">{user.name}</p>
+                          <p className="font-semibold text-neutral-900 truncate max-w-40">{user.name}</p>
                           {!user.verifiedEmail && (
                             <span title="Unverified email" className="text-orange-400">
                               <i className="fi fi-rr-envelope text-lg flex items-center justify-center shrink-0" />
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-neutral-400 truncate max-w-[160px]">{user.email}</p>
+                        <p className="text-xs text-neutral-400 truncate max-w-40">{user.email}</p>
                       </div>
                     </div>
                   </td>
@@ -824,7 +906,7 @@ export default function UsersPage() {
 
                   {/* Last Seen */}
                   <td className="px-4 py-3.5">
-                    <span className="text-sm text-neutral-500">{user.lastSeen}</span>
+                    <span className="text-sm text-neutral-500">{new Date(user.lastSeen).toLocaleString()}</span>
                   </td>
 
                   {/* Actions */}
@@ -842,8 +924,9 @@ export default function UsersPage() {
                         onView={() => setDrawerUser(user)}
                         onSuspend={() => changeStatus(user.id, 'suspended')}
                         onBan={() => changeStatus(user.id, 'banned')}
-                        onDelete={() => setUsers(prev => prev.filter(u => u.id !== user.id))}
+                        onDelete={() => handleDelete(user.id)}
                         onReactivate={() => changeStatus(user.id, 'active')}
+                        onChangeRole={(role) => changeRole(user.id, role)}
                       />
                     </div>
                   </td>

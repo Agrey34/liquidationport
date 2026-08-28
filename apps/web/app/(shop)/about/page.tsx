@@ -215,7 +215,7 @@ export default function AboutPage() {
                     alt={adv.title} 
                     fill 
                     className="object-contain object-left" 
-                  />
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" />
                 </div>
                 <h3 className="text-[18px] font-bold leading-7 text-[#111] mb-4">
                   {adv.title}

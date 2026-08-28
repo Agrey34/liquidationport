@@ -1,21 +1,43 @@
-
 'use client';
 
-import React, { useState, useMemo } from 'react';
-
-
+import React, { useState, useEffect, useCallback } from 'react';
 import { AppOrder, OrderStatus, PaymentStatus, SortKey, SortDir, TabFilter } from './types';
 import { OrderBadge, PaymentBadge, SortIcon } from './_components/OrderBadges';
 import { RowMenu } from './_components/RowMenu';
 import { OrderDrawer } from './_components/OrderDrawer';
 import { InvoiceOverlay } from './_components/InvoiceOverlay';
-import { MOCK_ORDERS } from './mockData';
+import { apiFetch } from '../../../lib/api';
 
 const PAGE_SIZE = 10;
 
+interface AdminOrdersResponse {
+  data: AppOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  kpis: {
+    totalOrders: number;
+    pendingOrders: number;
+    totalRevenue: number;
+    attentionRequired: number;
+  };
+}
+
 // --- Main Page ----------------------------------------------------------------
 export default function OrdersPage() {
-  const [orders, setOrders]           = useState<AppOrder[]>(MOCK_ORDERS);
+  const [orders, setOrders]           = useState<AppOrder[]>([]);
+  const [loading, setLoading]         = useState<boolean>(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [totalOrdersCount, setTotalOrdersCount] = useState<number>(0);
+  const [totalPages, setTotalPages]   = useState<number>(1);
+  const [kpis, setKpis]               = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    totalRevenue: 0,
+    attentionRequired: 0,
+  });
+
   const [search, setSearch]           = useState('');
   const [tabFilter, setTabFilter]     = useState<TabFilter>('all');
   const [paymentFilter, setPayFilter] = useState<PaymentStatus | 'All'>('All');
@@ -26,56 +48,62 @@ export default function OrdersPage() {
   const [invoiceOrder, setInvoiceOrder] = useState<AppOrder | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // ── KPIs ──────────────────────────────────────────────────────────────────
-  const totalOrders     = orders.length;
-  const pendingOrders   = orders.filter(o => o.status === 'pending').length;
-  const totalRevenue    = orders.filter(o => o.status !== 'cancelled' && o.paymentStatus !== 'failed').reduce((acc, o) => acc + o.total, 0);
-  const actAttention    = orders.filter(o => o.paymentStatus === 'failed' || (o.status === 'pending' && o.paymentStatus === 'paid')).length;
+  // ── Fetch Orders from Live API ────────────────────────────────────────────
+  const fetchOrders = useCallback(async (signal?: AbortSignal) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: PAGE_SIZE.toString(),
+        sortBy: sort.key,
+        sortDir: sort.dir,
+      });
 
-  // ── Filter + Sort ─────────────────────────────────────────────────────────
-  const filtered = useMemo(() => {
-    let list = [...orders];
+      if (search.trim()) params.set('search', search.trim());
+      if (tabFilter !== 'all') params.set('status', tabFilter);
+      if (paymentFilter !== 'All') params.set('paymentStatus', paymentFilter);
 
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter(o =>
-        o.id.toLowerCase().includes(q) ||
-        o.customerName.toLowerCase().includes(q) ||
-        o.customerEmail.toLowerCase().includes(q)
-      );
-    }
-
-    if (tabFilter !== 'all') {
-      if (tabFilter === 'attention') {
-        list = list.filter(o => o.paymentStatus === 'failed' || (o.status === 'pending' && o.paymentStatus === 'paid'));
-      } else {
-        list = list.filter(o => o.status === tabFilter);
+      const res = await apiFetch<AppOrder[]>(`/orders/admin?${params.toString()}`, { signal });
+      const rawRes = res as unknown as AdminOrdersResponse;
+      const ordersList: AppOrder[] = Array.isArray(res.data)
+        ? (res.data as unknown as AppOrder[])
+        : (Array.isArray(rawRes?.data) ? rawRes.data : []);
+      setOrders(ordersList);
+      setTotalPages(rawRes?.totalPages || 1);
+      setTotalOrdersCount(rawRes?.total || ordersList.length);
+      if (rawRes?.kpis) {
+        setKpis(rawRes.kpis);
+      }
+    } catch (err: unknown) {
+      if (
+        signal?.aborted ||
+        (err instanceof Error && (err.name === 'AbortError' || err.message.toLowerCase().includes('abort')))
+      ) {
+        // Request was aborted due to parameter change or component unmount; ignore
+        return;
+      }
+      console.error('Failed to load orders:', err);
+      const msg = err instanceof Error ? err.message : 'Unable to connect to live orders API.';
+      setError(msg);
+    } finally {
+      if (!signal?.aborted) {
+        setLoading(false);
       }
     }
+  }, [page, search, tabFilter, paymentFilter, sort.key, sort.dir]);
 
-    if (paymentFilter !== 'All') {
-      list = list.filter(o => o.paymentStatus === paymentFilter);
-    }
+  useEffect(() => {
+    const controller = new AbortController();
+    const handler = setTimeout(() => {
+      fetchOrders(controller.signal);
+    }, 250);
 
-    list.sort((a, b) => {
-      let va = a[sort.key] as string | number;
-      let vb = b[sort.key] as string | number;
-      
-      // Basic date string comparison for mock
-      if (sort.key === 'createdAt') {
-        va = new Date(a.createdAt).getTime();
-        vb = new Date(b.createdAt).getTime();
-      }
-
-      const cmp = typeof va === 'number' ? va - (vb as number) : String(va).localeCompare(String(vb));
-      return sort.dir === 'asc' ? cmp : -cmp;
-    });
-
-    return list;
-  }, [orders, search, tabFilter, paymentFilter, sort]);
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paged      = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    return () => {
+      clearTimeout(handler);
+      controller.abort();
+    };
+  }, [fetchOrders]);
 
   const toggleSort = (key: SortKey) => {
     setSort(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }));
@@ -83,56 +111,98 @@ export default function OrdersPage() {
   };
 
   // ── Selection ─────────────────────────────────────────────────────────────
-  const allPageSelected = paged.length > 0 && paged.every(o => selected.has(o.id));
+  const allPageSelected = orders.length > 0 && orders.every(o => selected.has(o.id));
   const toggleAll = () => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (allPageSelected) paged.forEach(o => next.delete(o.id));
-      else paged.forEach(o => next.add(o.id));
+      if (allPageSelected) orders.forEach(o => next.delete(o.id));
+      else orders.forEach(o => next.add(o.id));
       return next;
     });
   };
   const toggleOne = (id: string) => {
-    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
   };
 
   // ── Actions ─────────────────────────────────────────────────────────────────
-  const changeStatus = (id: string, status: OrderStatus) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id !== id) return o;
-      const updated = { ...o, status, updatedAt: 'Just now' };
-      updated.activity = [{
-        action: `Status Updated to ${status}`,
-        status: status,
-        timestamp: 'Just now',
-        actor: 'Admin'
-      }, ...o.activity];
-      return updated;
-    }));
+  const changeStatus = async (id: string, status: OrderStatus) => {
+    // Optimistic local update
+    setOrders(prev => prev.map(o => (o.id === id ? { ...o, status } : o)));
     if (drawerOrder?.id === id) {
       setDrawerOrder(prev => prev ? { ...prev, status } : null);
     }
+
+    try {
+      await apiFetch(`/orders/admin/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+      fetchOrders();
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update order status.');
+      fetchOrders();
+    }
   };
 
-  const handleBulkAction = (action: 'processing' | 'shipped') => {
-    setOrders(prev => prev.map(o => selected.has(o.id) ? { ...o, status: action } : o));
+  const handleBulkAction = async (action: 'processing' | 'shipped') => {
+    const ids = Array.from(selected);
     setSelected(new Set());
-  };
-
-  const deleteSelected = () => {
-    setOrders(prev => prev.filter(o => !selected.has(o.id)));
-    setSelected(new Set());
+    try {
+      await Promise.all(
+        ids.map(id =>
+          apiFetch(`/orders/admin/${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: action })
+          })
+        )
+      );
+      fetchOrders();
+    } catch (err) {
+      console.error('Bulk action error:', err);
+      fetchOrders();
+    }
   };
 
   const TABS: { key: TabFilter; label: string; count: number }[] = [
-    { key: 'all',        label: 'All Orders', count: orders.length },
-    { key: 'attention',  label: 'Attention Needed', count: actAttention },
-    { key: 'pending',    label: 'Pending',    count: orders.filter(o => o.status === 'pending').length },
+    { key: 'all',        label: 'All Orders', count: kpis.totalOrders },
+    { key: 'attention',  label: 'Attention Needed', count: kpis.attentionRequired },
+    { key: 'pending',    label: 'Pending',    count: kpis.pendingOrders },
     { key: 'processing', label: 'Processing', count: orders.filter(o => o.status === 'processing').length },
     { key: 'shipped',    label: 'Shipped',    count: orders.filter(o => o.status === 'shipped').length },
   ];
 
   const PAY_STATUSES: Array<PaymentStatus | 'All'> = ['All', 'paid', 'unpaid', 'failed', 'refunded'];
+
+  const exportCSV = () => {
+    if (orders.length === 0) return;
+    const headers = ['Order ID', 'Date', 'Customer Name', 'Customer Email', 'Status', 'Payment Status', 'Total'];
+    const rows = orders.map(o => [
+      o.id,
+      `"${o.createdAt}"`,
+      `"${o.customerName}"`,
+      `"${o.customerEmail}"`,
+      o.status,
+      o.paymentStatus,
+      o.total
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `orders_export_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -141,24 +211,49 @@ export default function OrdersPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-neutral-900">Orders Management</h2>
-          <p className="text-neutral-500 mt-1 text-sm">View, fulfill, and track customer orders across the platform.</p>
+          <p className="text-neutral-500 mt-1 text-sm">View, fulfill, and track customer orders live across the platform.</p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            className="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-50 transition-colors shadow-sm"
+            onClick={exportCSV}
+            disabled={orders.length === 0}
+            className="inline-flex items-center gap-2 bg-white border border-neutral-200 text-neutral-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-50 transition-colors shadow-sm disabled:opacity-50"
           >
             <i className="fi fi-rr-download text-lg flex items-center justify-center shrink-0" /> Export CSV
+          </button>
+          <button
+            onClick={() => fetchOrders()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 bg-neutral-900 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-neutral-800 transition-colors shadow-sm disabled:opacity-50"
+          >
+            <i className={`fi fi-rr-refresh text-base ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
       </div>
 
+      {/* Error Alert if any */}
+      {error && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm">
+            <i className="fi fi-rr-triangle-warning text-lg shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => fetchOrders()}
+            className="text-xs font-bold underline hover:no-underline ml-4"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
       {/* ── KPI Stats ────────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Total Volume',     value: `$${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0 })}`, icon: 'fi fi-rr-dollar', color: 'text-emerald-600 bg-emerald-50' },
-          { label: 'Total Orders',     value: totalOrders,    icon: 'fi fi-rr-shopping-bag', color: 'text-blue-600 bg-blue-50' },
-          { label: 'Pending Processing',value: pendingOrders, icon: 'fi fi-rr-clock-three',       color: 'text-amber-600 bg-amber-50' },
-          { label: 'Action Required',  value: actAttention,   icon: 'fi fi-rr-triangle-warning',color: actAttention > 0 ? 'text-rose-600 bg-rose-50' : 'text-neutral-600 bg-neutral-50' },
+          { label: 'Total Volume',     value: `$${kpis.totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`, icon: 'fi fi-rr-dollar', color: 'text-emerald-600 bg-emerald-50' },
+          { label: 'Total Orders',     value: kpis.totalOrders,    icon: 'fi fi-rr-shopping-bag', color: 'text-blue-600 bg-blue-50' },
+          { label: 'Pending Processing',value: kpis.pendingOrders, icon: 'fi fi-rr-clock-three',       color: 'text-amber-600 bg-amber-50' },
+          { label: 'Action Required',  value: kpis.attentionRequired,   icon: 'fi fi-rr-triangle-warning',color: kpis.attentionRequired > 0 ? 'text-rose-600 bg-rose-50' : 'text-neutral-600 bg-neutral-50' },
         ].map(({ label, value, icon, color }) => (
           <div key={label} className="bg-white border border-neutral-200 rounded-2xl p-5 flex items-center gap-4 shadow-sm">
             <div className={`${color.split(" ")[0]} shrink-0 flex items-center justify-center`}>
@@ -258,10 +353,10 @@ export default function OrdersPage() {
                 <i className="fi fi-rr-box w-3.5 h-3.5 flex items-center justify-center shrink-0" /> Mark Processing
               </button>
               <button
-                onClick={deleteSelected}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-semibold rounded-lg transition-colors"
+                onClick={() => handleBulkAction('shipped')}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold rounded-lg transition-colors"
               >
-                <i className="fi fi-rr-trash w-3.5 h-3.5 flex items-center justify-center shrink-0" /> Delete
+                <i className="fi fi-rr-truck-side w-3.5 h-3.5 flex items-center justify-center shrink-0" /> Mark Shipped
               </button>
               <button
                 onClick={() => setSelected(new Set())}
@@ -274,7 +369,7 @@ export default function OrdersPage() {
         )}
 
         {/* Table */}
-        <div className="overflow-x-auto min-h-[400px]">
+        <div className="overflow-x-auto min-h-100">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
               <tr className="bg-neutral-50 border-b border-neutral-200 text-neutral-500 text-xs uppercase tracking-wider font-semibold">
@@ -326,7 +421,20 @@ export default function OrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {paged.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="px-4 py-3.5"><div className="w-4 h-4 bg-neutral-200 rounded" /></td>
+                    <td className="px-4 py-3.5"><div className="w-24 h-4 bg-neutral-200 rounded" /></td>
+                    <td className="px-4 py-3.5"><div className="w-20 h-4 bg-neutral-200 rounded" /></td>
+                    <td className="px-4 py-3.5"><div className="w-28 h-4 bg-neutral-200 rounded" /></td>
+                    <td className="px-4 py-3.5"><div className="w-16 h-6 bg-neutral-200 rounded-full" /></td>
+                    <td className="px-4 py-3.5"><div className="w-16 h-6 bg-neutral-200 rounded-full" /></td>
+                    <td className="px-4 py-3.5"><div className="w-16 h-4 bg-neutral-200 rounded ml-auto" /></td>
+                    <td className="px-4 py-3.5"><div className="w-8 h-8 bg-neutral-200 rounded-lg ml-auto" /></td>
+                  </tr>
+                ))
+              ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="py-20 text-center">
                     <div className="flex flex-col items-center gap-3">
@@ -338,7 +446,7 @@ export default function OrdersPage() {
                     </div>
                   </td>
                 </tr>
-              ) : paged.map((order) => {
+              ) : orders.map((order) => {
                 const isLate = order.status === 'pending' && order.paymentStatus === 'paid';
                 return (
                   <tr
@@ -358,7 +466,7 @@ export default function OrdersPage() {
                     {/* Order ID */}
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-neutral-900 font-mono text-sm">{order.id}</span>
+                        <span className="font-bold text-neutral-900 font-mono text-sm truncate max-w-30 sm:max-w-45">{order.id}</span>
                         {isLate && (
                           <span title="Action Required - Late fulfillment" className="text-rose-500">
                             <i className="fi fi-rr-triangle-warning text-lg flex items-center justify-center shrink-0" />
@@ -378,8 +486,8 @@ export default function OrdersPage() {
                     {/* Customer */}
                     <td className="px-4 py-3.5">
                       <div className="min-w-0">
-                         <p className="font-semibold text-neutral-900 truncate max-w-[160px]">{order.customerName}</p>
-                         <p className="text-xs text-neutral-500 truncate max-w-[160px] mt-0.5">{order.customerEmail}</p>
+                         <p className="font-semibold text-neutral-900 truncate max-w-40 capitalize">{order.customerName}</p>
+                         <p className="text-xs text-neutral-500 truncate max-w-40 mt-0.5">{order.customerEmail}</p>
                       </div>
                     </td>
 
@@ -396,7 +504,7 @@ export default function OrdersPage() {
                     {/* Total */}
                     <td className="px-4 py-3.5 text-right">
                       <span className="font-bold text-neutral-900">
-                        ${order.total.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        ${Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                       </span>
                     </td>
 
@@ -430,10 +538,10 @@ export default function OrdersPage() {
           <p className="text-sm text-neutral-500">
             Showing{' '}
             <span className="font-semibold text-neutral-900">
-              {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(page * PAGE_SIZE, filtered.length)}
+              {totalOrdersCount === 0 ? 0 : Math.min((page - 1) * PAGE_SIZE + 1, totalOrdersCount)}–{Math.min(page * PAGE_SIZE, totalOrdersCount)}
             </span>{' '}
             of{' '}
-            <span className="font-semibold text-neutral-900">{filtered.length}</span> orders
+            <span className="font-semibold text-neutral-900">{totalOrdersCount}</span> orders
           </p>
           <div className="flex items-center gap-1">
             <button

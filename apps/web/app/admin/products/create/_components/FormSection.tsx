@@ -14,7 +14,17 @@ export const CATEGORIES = [
   'Tools & Hardware', 'Sports', 'Beauty', 'Furniture', 'Pet Supplies', 'Baby', 'Other',
 ];
 
-export const CONDITIONS = ['New', 'Like New', 'Good', 'Fair', 'Poor / Parts Only'];
+export const CONDITIONS = [
+  'Brand New',
+  'Open Box',
+  'Untested Returns',
+  'Overstock',
+  'Shelf Pulls',
+  'Good',
+  'Fair',
+  'Scratch & Dent',
+  'Salvage / Parts',
+];
 
 // ─── Shared types ─────────────────────────────────────────────────────────────
 

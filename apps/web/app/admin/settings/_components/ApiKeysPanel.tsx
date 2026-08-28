@@ -21,7 +21,7 @@ export function ApiKeysPanel() {
         </div>
         <h3 className="text-lg font-bold text-neutral-900">No Custom API Keys</h3>
         <p className="text-neutral-500 text-sm mt-2 max-w-sm">
-          You haven't generated any programmatic API keys yet. Generate a key to allow third-party services to access your data securely.
+          You haven&apos;t generated any programmatic API keys yet. Generate a key to allow third-party services to access your data securely.
         </p>
       </div>
 

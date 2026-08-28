@@ -36,6 +36,40 @@ class EnvironmentVariables {
   @IsOptional()
   @IsString()
   CORS_ORIGIN?: string;
+
+  // Cloudflare R2 Storage
+  @IsOptional()
+  @IsString()
+  R2_ACCOUNT_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_ACCESS_KEY_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_SECRET_ACCESS_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_BUCKET_NAME?: string;
+
+  @IsOptional()
+  @IsString()
+  R2_PUBLIC_DOMAIN?: string;
+
+  // Supabase S3 Storage
+  @IsOptional()
+  @IsString()
+  SUPABASE_STORAGE_ACCESS_KEY_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  SUPABASE_STORAGE_SECRET_ACCESS_KEY?: string;
+
+  @IsOptional()
+  @IsString()
+  SUPABASE_STORAGE_REGION?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

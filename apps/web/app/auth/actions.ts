@@ -13,6 +13,7 @@ export async function login(formData: FormData) {
   // Collect data
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const formRedirect = formData.get('redirectTo') as string | null
 
   // Input Validation
   if (!email || !password) {
@@ -20,7 +21,7 @@ export async function login(formData: FormData) {
   }
 
   // Attempt login via Supabase
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
@@ -29,9 +30,15 @@ export async function login(formData: FormData) {
     return { error: error.message }
   }
 
+  // Determine target path: prioritize explicit redirectTo, ensure valid admin path
+  let targetPath = '/admin'
+  if (formRedirect && formRedirect.startsWith('/admin') && !formRedirect.startsWith('/admin-login') && !formRedirect.startsWith('/admin-signup')) {
+    targetPath = formRedirect
+  }
+
   // Clear cache and redirect to dashboard
   revalidatePath('/', 'layout')
-  redirect('/admin/products/create')
+  redirect(targetPath)
 }
 
 // --------------------------------------------------------------------------------
