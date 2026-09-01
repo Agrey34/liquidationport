@@ -29,7 +29,7 @@ async function bootstrap() {
     }),
   );
 
-  const configuredOrigins = [
+  const rawOrigins = [
     process.env.FRONTEND_URL,
     process.env.CORS_ORIGIN,
     'http://localhost:3000',
@@ -38,18 +38,32 @@ async function bootstrap() {
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
     'http://127.0.0.1:3002',
-  ].filter(Boolean) as string[];
+    'http://liquidationport-web-66dj-amber.vercel.app',
+  ];
+
+  // Flatten and normalize configured origins (split comma-separated lists, remove trailing slashes)
+  const configuredOrigins = rawOrigins
+    .filter(Boolean)
+    .flatMap((entry) => (entry as string).split(','))
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter((s) => s.length > 0);
 
   app.enableCors({
     origin: (origin, callback) => {
       // Allow requests with no origin (like mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
+
+      const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+
       if (
-        configuredOrigins.includes(origin) ||
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+        configuredOrigins.includes(normalizedOrigin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin) ||
+        /^https:\/\/.*\.vercel\.app$/.test(normalizedOrigin)
       ) {
         return callback(null, true);
       }
+
+      console.warn(`[CORS Blocked] Origin not allowed: ${origin}`);
       return callback(null, false);
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
