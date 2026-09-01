@@ -67,14 +67,14 @@ export class StorageService implements OnModuleInit {
       this.configService.get<string>('r2.publicDomain') ||
       this.configService.get<string>('R2_PUBLIC_DOMAIN');
 
-    // Use the local proxy in development; use a true CDN URL in production
+    // Use the relative proxy in development/self-hosted; use a true CDN URL in production if provided
     if (
       !rawPublicDomain ||
       rawPublicDomain.includes('pub-ecommerce-product-images.r2.dev') ||
-      rawPublicDomain.includes('.r2.cloudflarestorage.com')
+      rawPublicDomain.includes('.r2.cloudflarestorage.com') ||
+      rawPublicDomain.includes('localhost')
     ) {
-      const apiPort = this.configService.get<string>('PORT') || '4000';
-      this.r2PublicDomain = `http://localhost:${apiPort}/api/v1/shop/media`;
+      this.r2PublicDomain = '/api/v1/shop/media';
     } else {
       this.r2PublicDomain = rawPublicDomain;
     }
@@ -249,11 +249,17 @@ export class StorageService implements OnModuleInit {
       throw new Error(`Failed to upload to Cloudflare R2: ${err.message}`);
     }
 
-    // Build the public URL — either through local proxy or CDN
-    const baseUrl = this.r2PublicDomain.replace(/\/$/, '');
-    const publicUrl = baseUrl.startsWith('http')
-      ? `${baseUrl}/${key}`
-      : `https://${baseUrl}/${key}`;
+    // Build the public URL — either through relative API proxy or external CDN
+    let publicUrl: string;
+    const cleanKey = key.replace(/^\//, '');
+    if (this.r2PublicDomain.startsWith('/')) {
+      publicUrl = `${this.r2PublicDomain.replace(/\/$/, '')}/${cleanKey}`;
+    } else {
+      const baseUrl = this.r2PublicDomain.replace(/\/$/, '');
+      publicUrl = baseUrl.startsWith('http')
+        ? `${baseUrl}/${cleanKey}`
+        : `https://${baseUrl}/${cleanKey}`;
+    }
 
     this.logger.log(`Uploaded asset to R2 [${folder}/]: ${publicUrl}`);
     return { url: publicUrl, key, bucket: this.r2BucketName, folder };

@@ -299,20 +299,32 @@ export class StorageController {
       }
       res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
       res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
-      if (obj.body instanceof Readable) {
-        obj.body.pipe(res);
-      } else if (obj.body && typeof (obj.body as any).pipe === 'function') {
-        (obj.body as any).pipe(res);
-      } else if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
+      if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
         const byteArray = await (obj.body as any).transformToByteArray();
-        res.end(Buffer.from(byteArray));
+        return res.end(Buffer.from(byteArray));
+      } else if (obj.body instanceof Readable) {
+        return obj.body.pipe(res);
+      } else if (obj.body && typeof (obj.body as any).pipe === 'function') {
+        return (obj.body as any).pipe(res);
       } else {
         const stream = Readable.fromWeb(obj.body as any);
-        stream.pipe(res);
+        return stream.pipe(res);
       }
     } catch (err: any) {
       throw new NotFoundException(`Media file '${key}' not found in Cloudflare R2: ${err.message}`);
     }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // GET /shop/media/:file (Fallback for direct filename requests)
+  // ────────────────────────────────────────────────────────────────────────────
+  @Get('media/:file')
+  async streamSingleMediaFile(
+    @Param('file') file: string,
+    @Res() res: Response,
+  ) {
+    return this.streamMediaFile('products', file, res);
   }
 }

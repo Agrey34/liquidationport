@@ -236,14 +236,49 @@ export class ProductsService {
 
   private normalizeMediaUrl(url: string): string {
     if (!url || typeof url !== 'string') return url;
+
+    const r2PublicDomain =
+      this.configService.get<string>('r2.publicDomain') ||
+      this.configService.get<string>('R2_PUBLIC_DOMAIN');
+
     if (url.includes('pub-ecommerce-product-images.r2.dev') || url.includes('.r2.cloudflarestorage.com')) {
       const parts = url.split('.r2.dev/');
-      const key = parts[1] || url.split('.r2.cloudflarestorage.com/')[1] || '';
+      let key = parts[1] || url.split('.r2.cloudflarestorage.com/')[1] || '';
+      if (key.startsWith('ecommerce-product-images/')) {
+        key = key.replace('ecommerce-product-images/', '');
+      }
+
       if (key) {
-        const port = this.configService.get<string>('PORT') || '4000';
-        return `http://localhost:${port}/api/v1/shop/media/${key.replace(/^\//, '')}`;
+        // If a real public CDN domain is configured (e.g. media.liquidationport.com), use it directly
+        if (
+          r2PublicDomain &&
+          !r2PublicDomain.includes('pub-ecommerce-product-images.r2.dev') &&
+          !r2PublicDomain.includes('.r2.cloudflarestorage.com') &&
+          !r2PublicDomain.includes('localhost')
+        ) {
+          const base = r2PublicDomain.startsWith('http')
+            ? r2PublicDomain.replace(/\/$/, '')
+            : `https://${r2PublicDomain.replace(/\/$/, '')}`;
+          return `${base}/${key.replace(/^\//, '')}`;
+        }
+
+        // Return relative API proxy path for reliable cross-environment streaming
+        return `/api/v1/shop/media/${key.replace(/^\//, '')}`;
       }
     }
+
+    // If stored with localhost in the DB, normalize it to relative path
+    if (url.includes('localhost:4000') || url.includes('127.0.0.1:4000')) {
+      if (url.includes('/api/v1/shop/media/')) {
+        const key = url.split('/api/v1/shop/media/')[1];
+        return `/api/v1/shop/media/${key.replace(/^\//, '')}`;
+      }
+      if (url.includes('/shop/media/')) {
+        const key = url.split('/shop/media/')[1];
+        return `/api/v1/shop/media/${key.replace(/^\//, '')}`;
+      }
+    }
+
     return url;
   }
 
