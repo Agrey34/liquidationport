@@ -17,9 +17,17 @@ async function bootstrap() {
     },
   );
 
-  // Proxy IP mapping if deployed behind a Load Balancer or CDN
-  // const expressApp = app.getHttpAdapter().getInstance();
-  // expressApp.set('trust proxy', 1);
+
+  // Hosting platforms (Render, Railway, Fly.io) send HEAD / or GET / as uptime checks.
+  // Our global prefix is /api/v1, so / returns 404 by default. This raw Express
+  // middleware intercepts before NestJS routing to keep logs clean.
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.use('/', (req: { method: string; path: string }, res: { status: (code: number) => { json: (body: object) => void }; sendStatus: (code: number) => void }, next: () => void) => {
+    if (req.path === '/' && (req.method === 'GET' || req.method === 'HEAD')) {
+      return res.status(200).json({ status: 'ok' });
+    }
+    return next();
+  });
 
   // --- SECURITY: HELMET ---
   // Sets strong HTTP headers to mitigate classic web vulnerabilities (XSS, Clickjacking, MIME snapping)

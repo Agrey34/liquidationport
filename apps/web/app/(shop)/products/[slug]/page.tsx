@@ -18,7 +18,7 @@ import {
 import Link from 'next/link';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, sanitizeClientErrorMessage } from '@/lib/api';
 import { getMediaUrl, DEFAULT_PRODUCT_FALLBACK } from '@/lib/image-url';
 import { useCart, useWishlist } from '@/lib/context/StoreContext';
 import { formatConditionLabel } from '@/lib/condition';
@@ -29,6 +29,7 @@ interface ApiVariant {
   name?: string;
   price?: number | string | null;
   stock?: number | string | null;
+  msrp?: number | string | null;
 }
 
 interface ApiMedia {
@@ -50,6 +51,12 @@ interface ApiProductDetail {
   costPrice?: number | string | null;
   sku?: string | null;
   weight?: number | string | null;
+  manufacturer?: string | null;
+  dimensionL?: number | string | null;
+  dimensionW?: number | string | null;
+  dimensionH?: number | string | null;
+  liquidatorName?: string | null;
+  liquidatorLogo?: string | null;
   manifest?: Array<{
     manufacturer?: string;
     productName?: string;
@@ -110,12 +117,12 @@ export default function ProductDetailsPage() {
             : res.data;
 
         if (!data || !data.id) {
-          throw new Error('Product not found.');
+          throw new Error('This listing is no longer available.');
         }
         setProduct(data);
       } catch (err: unknown) {
         console.error('Failed to load product detail:', err);
-        setError(err instanceof Error ? err.message : 'Unable to find this product.');
+        setError(sanitizeClientErrorMessage(err instanceof Error ? err.message : 'Unable to find this product.'));
       } finally {
         setLoading(false);
       }
@@ -139,9 +146,9 @@ export default function ProductDetailsPage() {
     return (
       <div className="min-h-screen bg-[#f8f9fa] flex flex-col items-center justify-center p-6 text-center">
         <div className="bg-white p-8 sm:p-12 rounded-2xl border border-neutral-200 shadow-sm max-w-md w-full">
-          <h2 className="text-2xl font-bold text-neutral-900 mb-2">Product Not Found</h2>
+          <h2 className="text-2xl font-bold text-neutral-900 mb-2">Listing Unavailable</h2>
           <p className="text-neutral-500 text-sm mb-6">
-            {error || 'The requested listing does not exist or has been removed.'}
+            {error || 'The requested listing does not exist or is temporarily unavailable.'}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
@@ -163,8 +170,25 @@ export default function ProductDetailsPage() {
   }
 
   const rawPrice = typeof product.price === 'string' ? parseFloat(product.price) : Number(product.price || 0);
-  const msrpPrice = product.comparePrice ? Number(product.comparePrice) : Number((rawPrice * 1.4).toFixed(2));
-  const savings = Math.max(0, msrpPrice - rawPrice);
+
+  // DYNAMIC MSRP: Priority 1: comparePrice, Priority 2: manifest total, Priority 3: variant msrp
+  let dynamicMsrp = product.comparePrice != null ? Number(product.comparePrice) : 0;
+  if ((!dynamicMsrp || dynamicMsrp <= 0) && product.manifest && Array.isArray(product.manifest)) {
+    const manifestTotal = product.manifest.reduce(
+      (sum, item) => sum + Number(item.qty || 1) * Number(item.msrp || 0),
+      0
+    );
+    if (manifestTotal > 0) dynamicMsrp = manifestTotal;
+  }
+  if ((!dynamicMsrp || dynamicMsrp <= 0) && product.variants && Array.isArray(product.variants)) {
+    const variantTotal = product.variants.reduce(
+      (sum, v) => sum + Number(v.stock || 1) * Number(v.msrp || 0),
+      0
+    );
+    if (variantTotal > 0) dynamicMsrp = variantTotal;
+  }
+  const msrpPrice = dynamicMsrp > 0 ? Number(dynamicMsrp.toFixed(2)) : 0;
+  const savings = msrpPrice > rawPrice ? Math.max(0, msrpPrice - rawPrice) : 0;
   const images =
     product.media && product.media.length > 0
       ? product.media.map((m) => getMediaUrl(m.url))
@@ -235,43 +259,38 @@ export default function ProductDetailsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const hasCustomManifest = Boolean(
+    product.manifest && Array.isArray(product.manifest) && product.manifest.length > 0
+  );
+
   // Derive manifest rows
   const manifestItems =
-    product.manifest && Array.isArray(product.manifest) && product.manifest.length > 0
+    hasCustomManifest && Array.isArray(product.manifest)
       ? product.manifest.map((m, i) => ({
-          manufacturer: m.manufacturer || product.category?.name || 'Assorted Brands',
-          productName: m.productName || m.product || `${product.name} (Item ${i + 1})`,
-          product: m.product || `LOT-ITEM-${i + 1}`,
-          condition: m.condition || product.condition || 'Untested Customer Returns',
-          upc: m.upc || `00850020${1000 + i}`,
+          manufacturer: m.manufacturer?.trim() || product.manufacturer || product.liquidatorName || 'Assorted Brands',
+          productName: m.productName?.trim() || m.product?.trim() || `${product.name} (Item ${i + 1})`,
+          product: m.product?.trim() || (product.sku ? `${product.sku}-${i + 1}` : `LOT-ITEM-${i + 1}`),
+          condition: formatConditionLabel(m.condition || product.condition || 'Untested Customer Returns'),
+          upc: m.upc?.trim() || '—',
           qty: Number(m.qty || 1),
-          msrp: m.msrp
+          msrp: m.msrp && !isNaN(Number(m.msrp))
             ? Number(m.msrp)
-            : Number((rawPrice / Math.max(product.manifest?.length || 1, 1)).toFixed(2)),
-        }))
-      : product.variants && product.variants.length > 0
-      ? product.variants.map((v, i) => ({
-          manufacturer: product.category?.name || 'Assorted Brands',
-          productName: v.name || `${product.name} (Variant ${i + 1})`,
-          product: v.sku || `SKU-${i + 1}`,
-          condition: product.condition || 'Untested Customer Returns',
-          upc: `00850020${1000 + i}`,
-          qty: Number(v.stock || 1),
-          msrp: Number(v.price || rawPrice),
+            : Number((msrpPrice / Math.max(product.manifest?.length || 1, 1)).toFixed(2)),
         }))
       : [
           {
-            manufacturer: product.category?.name || 'Assorted Brands',
+            manufacturer: product.manufacturer || product.liquidatorName || 'Assorted Brands',
             productName: product.name,
-            product: product.sku || product.slug?.toUpperCase().slice(0, 10) || 'GEN-SKU',
-            condition: product.condition || 'Untested Customer Returns',
-            upc: '008500201412',
-            qty: product.stock || 1,
+            product: product.sku || '—',
+            condition: formatConditionLabel(product.condition || 'Untested Customer Returns'),
+            upc: '—',
+            qty: unitsCount,
             msrp: msrpPrice,
           },
         ];
 
   const totalManifestItems = manifestItems.length;
+  const manifestTotalQty = manifestItems.reduce((sum, item) => sum + item.qty, 0);
   const totalPages = Math.ceil(totalManifestItems / rowsPerPage) || 1;
   const startIndex = (currentPage - 1) * rowsPerPage;
   const endIndex = Math.min(currentPage * rowsPerPage, totalManifestItems);
@@ -308,18 +327,32 @@ export default function ProductDetailsPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
         <div className="bg-white rounded-xl border border-neutral-200/90 shadow-2xs overflow-hidden">
           
-          {/* Header Bar inside white card */}
-          <div className="flex items-center justify-between px-6 py-3.5 border-b border-neutral-100">
-            <div className="flex items-center gap-2 text-xs font-semibold text-neutral-800">
-              <MapPin className="w-4 h-4 text-neutral-500 shrink-0" />
-              <span>Bentonville, AR</span>
+          {/* Header Bar inside white card (rendered if liquidator info exists) */}
+          {(product.liquidatorLogo || product.liquidatorName) && (
+            <div className="flex items-center justify-end px-6 py-3.5 border-b border-neutral-100">
+              <div className="flex items-center gap-2">
+                {product.liquidatorLogo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={product.liquidatorLogo}
+                    alt={product.liquidatorName || 'Liquidator logo'}
+                    className="h-6 w-auto object-contain max-w-30"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                ) : product.liquidatorName ? (
+                  <span className="font-extrabold text-sm tracking-tight" style={{
+                    color: {
+                      walmart: '#0071dc', amazon: '#ff9900', target: '#cc0000',
+                      'home depot': '#f96302', costco: '#005dab', 'best buy': '#0046be',
+                      "lowe's": '#004990', 'sam\'s club': '#0071ce',
+                    }[product.liquidatorName.toLowerCase()] || '#18113c'
+                  }}>
+                    {product.liquidatorName}
+                  </span>
+                ) : null}
+              </div>
             </div>
-
-            <div className="flex items-center gap-1">
-              <span className="font-extrabold text-sm tracking-tight text-[#0071dc]">Walmart</span>
-              <span className="text-amber-500 text-base leading-none font-black">*</span>
-            </div>
-          </div>
+          )}
 
           {/* Card Body (2-Column Grid) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 p-6 lg:p-8">
@@ -328,7 +361,7 @@ export default function ProductDetailsPage() {
             <div className="lg:col-span-7 flex gap-4 items-start">
               
               {/* Thumbnail Strip */}
-              <div className="flex flex-col gap-2.5 w-14 sm:w-16 shrink-0 max-h-[460px] overflow-y-auto no-scrollbar">
+              <div className="flex flex-col gap-2.5 w-14 sm:w-16 shrink-0 max-h-115 overflow-y-auto no-scrollbar">
                 {images.map((imgUrl, i) => (
                   <button
                     key={i}
@@ -355,7 +388,7 @@ export default function ProductDetailsPage() {
               </div>
 
               {/* Main Image View */}
-              <div className="flex-1 aspect-[4/3] bg-white rounded-lg flex items-center justify-center relative p-6 border border-neutral-100 overflow-hidden">
+              <div className="flex-1 aspect-4/3 bg-white rounded-lg flex items-center justify-center relative p-6 border border-neutral-100 overflow-hidden">
                 <Image
                   src={currentImage}
                   alt={product.name}
@@ -445,7 +478,7 @@ export default function ProductDetailsPage() {
                       MSRP
                     </span>
                     <span className="text-xs font-semibold text-neutral-800">
-                      ${msrpPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {msrpPrice > 0 ? `$${msrpPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                     </span>
                   </div>
                 </div>
@@ -483,7 +516,11 @@ export default function ProductDetailsPage() {
                       DIMENSIONS/WEIGHTS
                     </span>
                     <span className="text-xs font-semibold text-neutral-800 block">
-                      {product.weight ? `74"x72"x44" / ${product.weight}lb` : '74"x72"x44" / 750lb'}
+                      {(product.dimensionL && product.dimensionW && product.dimensionH)
+                        ? `${Number(product.dimensionL)}"×${Number(product.dimensionW)}"×${Number(product.dimensionH)}" / ${product.weight ? `${Number(product.weight)}lb` : 'N/A'}`
+                        : product.weight
+                        ? `N/A / ${Number(product.weight)}lb`
+                        : '—'}
                     </span>
                     <button
                       type="button"
@@ -502,8 +539,12 @@ export default function ProductDetailsPage() {
                 {showAllDimensions && (
                   <div className="p-3 bg-neutral-50 rounded-lg text-[11px] text-neutral-600 space-y-1 mt-2 border border-neutral-100">
                     <p className="font-semibold text-neutral-800">Pallet Breakdown:</p>
-                    <p>• Estimated Skid Dimensions: 48&quot;L x 40&quot;W x 72&quot;H</p>
-                    <p>• Total Freight Weight: {product.weight || 750} lbs (Class 125)</p>
+                    {(product.dimensionL && product.dimensionW && product.dimensionH) ? (
+                      <p>• Estimated Skid Dimensions: {Number(product.dimensionL)}&quot;L x {Number(product.dimensionW)}&quot;W x {Number(product.dimensionH)}&quot;H</p>
+                    ) : (
+                      <p>• Estimated Skid Dimensions: 48&quot;L x 40&quot;W x 72&quot;H (standard)</p>
+                    )}
+                    <p>• Total Freight Weight: {product.weight ? `${Number(product.weight)} lbs` : 'Contact for weight'}{product.weight && Number(product.weight) > 500 ? ' (Class 125)' : ''}</p>
                     <p>• Forklift / Loading Dock Accessible: Yes</p>
                   </div>
                 )}
@@ -562,7 +603,7 @@ export default function ProductDetailsPage() {
             ))}
           </div>
 
-          <div className="p-6 md:p-8 min-h-[350px]">
+          <div className="p-6 md:p-8 min-h-87.5">
             <AnimatePresence mode="wait">
               {/* Manifest Tab */}
               {activeTab === 'Manifest' && (
@@ -576,7 +617,11 @@ export default function ProductDetailsPage() {
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4">
                     <div>
                       <h3 className="text-base font-bold text-neutral-900">Pallet Manifest</h3>
-                      <p className="text-xs text-neutral-500">Detailed breakdown of included items in this lot.</p>
+                      <p className="text-xs text-neutral-500">
+                        {hasCustomManifest
+                          ? 'Detailed breakdown of included items in this lot.'
+                          : 'Wholesale lot overview for this pallet.'}
+                      </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       <button
@@ -588,36 +633,36 @@ export default function ProductDetailsPage() {
                       </button>
                       <div className="bg-neutral-50 px-3.5 py-2 rounded-lg font-mono text-xs font-semibold text-neutral-700 border border-neutral-200 flex items-center gap-2">
                         <Barcode className="w-4 h-4" />
-                        <span>Total Items: {unitsCount}</span>
+                        <span>Total Items: {manifestTotalQty}</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto rounded-xl border border-neutral-200 shadow-2xs">
-                    <table className="w-full text-left border-collapse text-xs">
+                  <div className="overflow-x-auto rounded-xl border border-neutral-200 shadow-2xs scrollbar-thin scrollbar-thumb-neutral-300">
+                    <table className="min-w-245 w-full text-left border-collapse text-xs">
                       <thead className="bg-[#0071dc] text-white">
                         <tr className="border-b border-blue-700">
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">Manufacturer</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">Product Name</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">SKU</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">Condition</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide">UPC</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide text-center">QTY</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide text-right">MSRP</th>
-                          <th className="px-4 py-3 text-xs font-bold text-white tracking-wide text-right">EXT Price</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide w-37.5 min-w-37.5 whitespace-nowrap">Manufacturer</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide min-w-65">Product Name</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide w-32.5 min-w-32.5 whitespace-nowrap">SKU / Model</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide w-37.5 min-w-37.5 whitespace-nowrap">Condition</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide w-35 min-w-35 whitespace-nowrap">UPC / Barcode</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide text-center w-20 min-w-20 whitespace-nowrap">QTY</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide text-right w-27.5 min-w-27.5 whitespace-nowrap">MSRP</th>
+                          <th className="px-4 py-3.5 text-xs font-bold text-white tracking-wide text-right w-32.5 min-w-32.5 whitespace-nowrap">EXT Price</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-100 bg-white">
                         {paginatedManifestItems.map((item, idx) => (
                           <tr key={idx} className="hover:bg-neutral-50/60 transition-colors">
-                            <td className="px-4 py-3 font-medium text-neutral-800">{item.manufacturer}</td>
+                            <td className="px-4 py-3 font-medium text-neutral-800 whitespace-nowrap">{item.manufacturer}</td>
                             <td className="px-4 py-3 text-neutral-900 font-semibold">{item.productName}</td>
-                            <td className="px-4 py-3 font-mono text-neutral-500">{item.product}</td>
-                            <td className="px-4 py-3 text-neutral-600">{item.condition}</td>
-                            <td className="px-4 py-3 font-mono text-neutral-500">{item.upc}</td>
-                            <td className="px-4 py-3 text-center font-bold text-neutral-800">{item.qty}</td>
-                            <td className="px-4 py-3 text-right text-neutral-600">${item.msrp.toFixed(2)}</td>
-                            <td className="px-4 py-3 text-right font-bold text-neutral-900">
+                            <td className="px-4 py-3 font-mono text-neutral-500 whitespace-nowrap">{item.product}</td>
+                            <td className="px-4 py-3 text-neutral-600 whitespace-nowrap">{item.condition}</td>
+                            <td className="px-4 py-3 font-mono text-neutral-500 whitespace-nowrap">{item.upc}</td>
+                            <td className="px-4 py-3 text-center font-bold text-neutral-800 whitespace-nowrap">{item.qty}</td>
+                            <td className="px-4 py-3 text-right text-neutral-600 whitespace-nowrap">${item.msrp.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-neutral-900 whitespace-nowrap">
                               ${(item.msrp * item.qty).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                             </td>
                           </tr>
@@ -679,7 +724,11 @@ export default function ProductDetailsPage() {
 
                   <div className="mt-4 flex items-start gap-2 text-xs text-neutral-600 bg-neutral-50 p-3 rounded-lg border border-neutral-200">
                     <Info className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
-                    <p>Manifests are provided for informational purposes. All wholesale liquidation lots are sold as-is.</p>
+                    <p>
+                      {hasCustomManifest
+                        ? 'Manifests are provided for informational purposes. All wholesale liquidation lots are sold as-is.'
+                        : 'This pallet is sold as an unmanifested wholesale lot assortment. All wholesale liquidation lots are sold as-is.'}
+                    </p>
                   </div>
                 </motion.div>
               )}

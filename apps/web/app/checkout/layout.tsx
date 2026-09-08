@@ -15,7 +15,7 @@ export default function CheckoutLayout({
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center">
-             <span className="text-primary text-2xl font-black tracking-tight">Liquidation port</span>
+             <span className="text-primary text-2xl font-black tracking-tight">Liquidation Port</span>
           </Link>
           <div className="flex items-center gap-2 text-sm text-emerald-600 font-bold bg-emerald-50 px-3 py-1.5 rounded-md border border-emerald-100">
             <ShieldCheck className="w-4 h-4" /> SSL Encrypted Secure Checkout

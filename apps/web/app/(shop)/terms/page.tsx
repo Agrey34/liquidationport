@@ -10,7 +10,7 @@ export default function TermsPage() {
     <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
       <h1 className="text-4xl font-bold text-gray-900 mb-8">Terms of Service and User Agreement</h1>
       <div className="text-gray-700 space-y-6">
-        <p>Direction Liquidation, LLP, with offices at 20200 W Dixie Highway Suite 1005, Aventura, Florida 33180 (“Company” or “DL,” a first “Party”), operates directliquidation.com (the “Site”), an online private marketplace (“Private Marketplace” or “PM”), whereby it provides services (the “PM Services,” “Services” or “DL’s Services,” which comprise the Site) for the sale of merchandise and inventory, for example, liquidation or salvage goods, items, products, returns, surplus, units, pallets, skids and lots.</p>
+        <p>Liquidation Port, LLP, with offices at 20200 W Dixie Highway Suite 1005, Aventura, Florida 33180 (“Company” or “DL,” a first “Party”), operates liquidationport.com (the “Site”), an online private marketplace (“Private Marketplace” or “PM”), whereby it provides services (the “PM Services,” “Services” or “DL’s Services,” which comprise the Site) for the sale of merchandise and inventory, for example, liquidation or salvage goods, items, products, returns, surplus, units, pallets, skids and lots.</p>
         <p>Diverse entities, including individuals, sole proprietors, partnerships, businesses and corporations, desire to list and sell merchandise (“Merchandise”) and inventory (“Inventory”) through the PM. Registered Buyers (“Buyers”) and Sellers (“Sellers”) (collectively, “Users,” other “Parties”) have access to the Services subject to the terms and conditions set forth herein (the “Agreement”).</p>
         <p>The Services comprise, but are not limited to, the DL website, online services, account management services and customer support (collectively, “Site and Services”).</p>
         <p className="font-bold">REGISTERING FOR DL’S SERVICES IMPLIES ACCEPTANCE OF THE TERMS AND CONDITIONS OF THIS AGREEMENT. REGISTRATION IS NECESSARY FOR ACCESS TO DL’S SERVICES.</p>
@@ -133,7 +133,7 @@ export default function TermsPage() {
           <p>10.2. <strong>Feedback.</strong> User may provide feedback to DL regarding the Site and Services. DL may use such feedback for any purpose.</p>
         </div>
 
-        <p className="mt-8 font-bold text-gray-900 text-lg uppercase">I UNDERSTAND THAT BY PARTICIPATING IN A DIRECTLIQUIDATION.COM AUCTION OR DIRECT SALE THAT I AM BOUND AND I AGREE TO BE BOUND BY THIS AGREEMENT.</p>
+        <p className="mt-8 font-bold text-gray-900 text-lg uppercase">I UNDERSTAND THAT BY PARTICIPATING IN A LIQUIDATIONPORT.COM AUCTION OR DIRECT SALE THAT I AM BOUND AND I AGREE TO BE BOUND BY THIS AGREEMENT.</p>
       </div>
     </div>
   );

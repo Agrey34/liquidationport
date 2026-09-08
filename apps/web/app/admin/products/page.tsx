@@ -7,6 +7,7 @@ import Image from 'next/image';
 import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
 import { ProductDrawer } from './_components/ProductDrawer';
+import { toast } from '@/lib/toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -284,9 +285,10 @@ export default function ProductsPage() {
       await apiFetch(`/products/${id}`, { method: 'DELETE' });
       setProducts(prev => prev.filter(p => p.id !== id));
       setSelected(prev => { const next = new Set(prev); next.delete(id); return next; });
+      toast.success('Product deleted successfully');
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to delete product: ${errMsg}`);
+      toast.error(`Failed to delete product: ${errMsg}`);
     }
   };
 
@@ -298,9 +300,10 @@ export default function ProductsPage() {
       );
       setProducts(prev => prev.filter(p => !selected.has(p.id)));
       setSelected(new Set());
+      toast.success('Selected products deleted');
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      alert(`Failed to delete some products: ${errMsg}`);
+      toast.error(`Failed to delete some products: ${errMsg}`);
       fetchProducts();
     }
   };

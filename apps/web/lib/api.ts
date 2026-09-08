@@ -12,6 +12,28 @@ interface ExtendedRequestInit extends RequestInit {
   _isRetry?: boolean;
 }
 
+// Patterns that indicate internal server/database leaks
+const SENSITIVE_ERROR_PATTERNS = [
+  /prisma/i,
+  /database/i,
+  /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/, // IP addresses
+  /:\d{4,5}\b/, // Ports
+  /[a-z]:\\[^"'\n]+/i, // Windows paths
+  /\/(?:home|usr|var|app|src|node_modules)\/[^"'\n]+/i, // Unix paths
+  /invocation in/i,
+  /findfirst|findunique|findmany/i,
+  /failed to connect to api at/i,
+];
+
+export function sanitizeClientErrorMessage(msg: unknown): string {
+  if (!msg) return 'An unexpected error occurred.';
+  const str = typeof msg === 'string' ? msg : String(msg);
+  if (SENSITIVE_ERROR_PATTERNS.some((p) => p.test(str))) {
+    return 'Unable to complete this request right now. Please try again in a few moments.';
+  }
+  return str;
+}
+
 /**
  * A centralized fetch wrapper for making calls to the NestJS Backend.
  * It automatically grabs and refreshes the Supabase JWT token before sending,
@@ -82,8 +104,8 @@ export async function apiFetch<T>(
     ) {
       throw err;
     }
-    const errorMsg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to connect to API at ${url} (${errorMsg}). Please check if the backend server is running.`);
+    console.error(`[apiFetch] Network connection failure to ${url}:`, err);
+    throw new Error('Unable to connect to the server. Please check your internet connection or try again shortly.');
   }
 
   // Handle 401 Unauthorized by attempting a token refresh and a single retry
@@ -120,11 +142,14 @@ export async function apiFetch<T>(
       errorData = { message: response.statusText };
     }
 
-    const message = Array.isArray(errorData?.message)
+    const rawMessage = Array.isArray(errorData?.message)
       ? errorData.message.join(', ')
-      : errorData?.message || `API Error: ${response.status} ${response.statusText}`;
+      : errorData?.message || `Request failed (${response.status})`;
 
-    throw new Error(message);
+    // Log internally to console for developer debugging
+    console.error(`[apiFetch] API error response ${response.status} from ${url}:`, rawMessage);
+
+    throw new Error(sanitizeClientErrorMessage(rawMessage));
   }
 
   // All success responses from NestJS are wrapped in { data: T }

@@ -27,7 +27,7 @@ export default function AboutPage() {
     },
     {
       title: "No hidden fees",
-      desc: "When you buy with Direct Liquidation the price you see is the price you pay. There are no hidden costs or buyer's fees on our platform.",
+      desc: "When you buy with Liquidation Port the price you see is the price you pay. There are no hidden costs or buyer's fees on our platform.",
       icon: "/Icons/money-under-loupe.svg"
     },
     {
@@ -80,7 +80,7 @@ export default function AboutPage() {
           </div>
           <div className="flex items-center">
             <p className="text-[15px] leading-relaxed text-[#333]">
-              For over <strong>10 years</strong>, Direct Liquidation has been a leading provider of customer returns, overstock, and end-of-life products sourced from major retailers and manufacturers. We offer a diverse range of liquidation inventory, including electronics, home goods, clothing, toys, general merchandise and much more.
+              For over <strong>10 years</strong>, Liquidation Port has been a leading provider of customer returns, overstock, and end-of-life products sourced from major retailers and manufacturers. We offer a diverse range of liquidation inventory, including electronics, home goods, clothing, toys, general merchandise and much more.
             </p>
           </div>
         </div>
@@ -90,7 +90,7 @@ export default function AboutPage() {
       <section className="mx-auto max-w-screen-2xl px-4 sm:px-6 lg:px-8 mb-16">
         <div className="bg-[#EBE9F5] rounded-xl p-8 sm:p-12">
           <h2 className="text-[20px] font-bold text-[#111] mb-10">
-            Direct Liquidation by numbers
+            Liquidation Port by numbers
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-8">
             <div>
@@ -156,7 +156,7 @@ export default function AboutPage() {
           </div>
           <div className="lg:col-span-8 space-y-4">
             <p className="text-[15px] leading-relaxed text-[#333]">
-              At Direct Liquidation, we pride ourselves on providing a transparent and seamless buying experience. We offer detailed listing descriptions and photos, as well as accurate manifest information, so that our customers can make informed purchasing decisions. We also provide flexible shipping options, including local pickup, to ensure that our customers receive their products in a timely and cost-effective manner.
+              At Liquidation Port, we pride ourselves on providing a transparent and seamless buying experience. We offer detailed listing descriptions and photos, as well as accurate manifest information, so that our customers can make informed purchasing decisions. We also provide flexible shipping options, including local pickup, to ensure that our customers receive their products in a timely and cost-effective manner.
             </p>
             <p className="text-[15px] leading-relaxed text-[#333]">
               Our team is dedicated to providing excellent customer service and support. We understand that buying liquidation products can be intimidating, and we are here to help guide our customers through the process. Our knowledgeable and friendly staff are available to answer any questions or concerns that our customers may have.
@@ -237,7 +237,7 @@ export default function AboutPage() {
           </div>
           <div className="lg:col-span-8">
             <p className="text-[15px] leading-relaxed text-[#333]">
-              Thank you for choosing Direct Liquidation as your source for quality liquidation products. We look forward to serving you and helping you find the best deals on high-quality merchandise for years to come.
+              Thank you for choosing Liquidation Port as your source for quality liquidation products. We look forward to serving you and helping you find the best deals on high-quality merchandise for years to come.
             </p>
           </div>
         </div>

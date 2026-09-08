@@ -49,7 +49,7 @@ export default function Footer() {
             </div>
 
             <p className="text-[11px] text-[#4a4a4a]">
-              &copy; 2026 Direct Liquidation, a ReturnPro brand. All rights reserved.
+              &copy; 2026 Liquidation Port, a ReturnPro brand. All rights reserved.
             </p>
           </div>
 

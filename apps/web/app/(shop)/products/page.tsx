@@ -2,13 +2,12 @@
 
 import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { Filter, ArrowUpDown, Tag, SlidersHorizontal, Package, Heart, ShoppingCart } from 'lucide-react';
+import { Filter, ArrowUpDown, Tag, SlidersHorizontal, Package } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
-import { useCart, useWishlist } from '@/lib/context/StoreContext';
-import { formatConditionLabel, formatCardConditionBadge, getConditionBadgeClass } from '@/lib/condition';
+import { formatConditionLabel } from '@/lib/condition';
+import PalletCard from '@/app/(shop)/components/PalletCard';
 
 interface ApiProduct {
   id: string;
@@ -19,6 +18,13 @@ interface ApiProduct {
   stock: number;
   condition?: string | null;
   createdAt: string;
+  comparePrice?: number | string | null;
+  costPrice?: number | string | null;
+  liquidatorName?: string | null;
+  manifest?: Array<{
+    qty?: number;
+    msrp?: number | string;
+  }> | null;
   category?: {
     id: string;
     name: string;
@@ -28,6 +34,7 @@ interface ApiProduct {
     sku?: string;
     price?: number | string | null;
     stock?: number | string | null;
+    msrp?: number | string | null;
   }[];
   media?: {
     id?: string;
@@ -46,6 +53,7 @@ interface ShopPallet {
   lot: string;
   qty: number;
   msrp: number;
+  comparePrice?: number | string | null;
   price: number;
   originalPrice: number | null;
   image: string;
@@ -63,8 +71,6 @@ const DEFAULT_IMAGES = [
 
 function ProductsCatalogContent() {
   const searchParams = useSearchParams();
-  const { addToCart } = useCart();
-  const { toggleWishlist, isInWishlist } = useWishlist();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || 'All');
   const [selectedCondition, setSelectedCondition] = useState('All');
@@ -91,20 +97,39 @@ function ProductsCatalogContent() {
           const fallbackImg = DEFAULT_IMAGES[index % DEFAULT_IMAGES.length];
           const imgUrl = getMediaUrl(p.media?.[0]?.url, fallbackImg);
           const catName = p.category?.name || 'General Merchandise';
+          const retailerName = p.liquidatorName || catName;
           const conditionLabel = formatConditionLabel(p.condition);
-          
+
+          // DYNAMIC MSRP: Priority 1: comparePrice, Priority 2: manifest total, Priority 3: variant msrp
+          let dynamicMsrp = p.comparePrice != null ? Number(p.comparePrice) : 0;
+          if ((!dynamicMsrp || dynamicMsrp <= 0) && p.manifest && Array.isArray(p.manifest)) {
+            const manifestTotal = p.manifest.reduce(
+              (sum, item) => sum + Number(item.qty || 1) * Number(item.msrp || 0),
+              0
+            );
+            if (manifestTotal > 0) dynamicMsrp = manifestTotal;
+          }
+          if ((!dynamicMsrp || dynamicMsrp <= 0) && p.variants && Array.isArray(p.variants)) {
+            const variantTotal = p.variants.reduce(
+              (sum, v) => sum + Number(v.stock || 1) * Number(v.msrp || 0),
+              0
+            );
+            if (variantTotal > 0) dynamicMsrp = variantTotal;
+          }
+
           return {
             id: p.id,
             slug: p.slug || p.id,
             title: p.name,
-            retailer: catName,
+            retailer: retailerName,
             condition: conditionLabel,
             conditionGrade: conditionLabel,
             lot: '1 Pallet',
             qty: p.stock || 1,
-            msrp: Number((numPrice * 1.4).toFixed(2)),
+            msrp: dynamicMsrp > 0 ? Number(dynamicMsrp.toFixed(2)) : 0,
+            comparePrice: p.comparePrice,
             price: numPrice,
-            originalPrice: Number((numPrice * 1.15).toFixed(2)),
+            originalPrice: dynamicMsrp > 0 ? Number(dynamicMsrp.toFixed(2)) : null,
             image: imgUrl,
             category: catName,
           };
@@ -281,100 +306,9 @@ function ProductsCatalogContent() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredPallets.map(pallet => {
-                  const isSaved = isInWishlist(pallet.id);
-                  return (
-                    <div key={pallet.id} className="group bg-white rounded-3xl overflow-hidden border border-neutral-200 hover:border-neutral-900/50 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all duration-300 flex flex-col relative">
-                      
-                      {/* Quick Wishlist Button */}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleWishlist({
-                            id: pallet.id,
-                            title: pallet.title,
-                            price: pallet.price,
-                            msrp: pallet.msrp,
-                            img: pallet.image,
-                            slug: pallet.slug,
-                            retailer: pallet.retailer,
-                            conditionGrade: pallet.conditionGrade,
-                            qty: pallet.qty,
-                            category: pallet.category,
-                          });
-                        }}
-                        className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all z-20 shadow-sm border cursor-pointer ${
-                          isSaved
-                            ? 'bg-rose-50 border-rose-200 text-rose-600'
-                            : 'bg-white/90 backdrop-blur-md border-neutral-200 text-neutral-400 hover:text-rose-500 hover:bg-white'
-                        }`}
-                        title={isSaved ? "Remove from Saved Pallets" : "Save to Wishlist"}
-                      >
-                        <Heart className={`w-4 h-4 ${isSaved ? 'fill-rose-500 text-rose-500' : ''}`} />
-                      </button>
-
-                      <Link href={`/products/${pallet.slug || pallet.id}`} className="flex flex-col flex-1">
-                        <div className="relative aspect-[4/3] bg-neutral-100 overflow-hidden">
-                          <Image
-                            src={pallet.image}
-                            alt={pallet.title}
-                            fill
-                            unoptimized
-                            className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out mix-blend-multiply"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          />
-                          <div className="absolute top-3 left-3 flex gap-2 items-center">
-                            <span className={`px-2.5 py-1 backdrop-blur-md text-[10px] font-black rounded-lg uppercase tracking-wider shadow-xs ${getConditionBadgeClass(pallet.conditionGrade)}`}>
-                              {formatCardConditionBadge(pallet.conditionGrade)}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="p-5 flex flex-col flex-1">
-                          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider font-bold text-neutral-400 mb-2">
-                            <span>Lot #{pallet.id.slice(0, 8)}</span><span>•</span><span>{pallet.qty} Units</span>
-                          </div>
-                          <h3 className="font-extrabold text-neutral-900 leading-snug line-clamp-2 mb-3 mt-auto group-hover:text-blue-600 transition-colors">{pallet.title}</h3>
-                          <div className="h-px bg-neutral-100 w-full my-3"></div>
-                          <div className="flex justify-between items-end mb-4">
-                            <div>
-                              <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Buy It Now</p>
-                              <div className="flex items-baseline gap-2">
-                                <span className="text-xl font-black text-neutral-900">${pallet.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                {pallet.originalPrice && <span className="text-xs font-semibold text-neutral-400 line-through">${pallet.originalPrice.toLocaleString()}</span>}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider mb-0.5">Est. MSRP</p>
-                              <p className="text-sm font-semibold text-emerald-600">${pallet.msrp.toLocaleString()}</p>
-                            </div>
-                          </div>
-
-                          {/* Quick Add to Cart Button */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              addToCart({
-                                id: pallet.id,
-                                title: pallet.title,
-                                price: pallet.price,
-                                img: pallet.image,
-                                slug: pallet.slug,
-                                retailer: pallet.retailer,
-                                conditionGrade: pallet.conditionGrade,
-                                unitsCount: pallet.qty,
-                              });
-                            }}
-                            className="w-full py-3 bg-neutral-100 hover:bg-neutral-900 hover:text-white text-neutral-900 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <ShoppingCart className="w-3.5 h-3.5" /> Add to Cart
-                          </button>
-                        </div>
-                      </Link>
-                    </div>
-                  );
-                })}
+                {filteredPallets.map(pallet => (
+                  <PalletCard key={pallet.id} pallet={pallet} />
+                ))}
               </div>
             )}
           </div>

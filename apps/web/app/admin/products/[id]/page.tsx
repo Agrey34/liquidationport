@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { toast } from '@/lib/toast';
 
 // ─── Helper Types ─────────────────────────────────────────────────────────────
 
@@ -80,10 +81,10 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
     if (!confirm('Are you sure you want to delete this product?')) return;
     try {
       await apiFetch(`/products/${id}`, { method: 'DELETE' });
-      alert('Product deleted successfully!');
+      toast.success('Product deleted successfully!');
       router.push('/admin/products');
     } catch (err: unknown) {
-      alert(`Failed to delete product: ${err instanceof Error ? err.message : String(err)}`);
+      toast.error(`Failed to delete product: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 

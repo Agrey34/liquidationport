@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./(shop)/styles/globals.css";
 import { StoreProvider } from "../lib/context/StoreContext";
+import Toaster from "./components/Toaster";
 
 export const metadata: Metadata = {
   title: "Liquidation Port: Wholesale Auctions of Liquidation Inventory",
@@ -20,6 +21,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col font-sans relative">
         <StoreProvider>
           {children}
+          <Toaster />
         </StoreProvider>
       </body>
     </html>

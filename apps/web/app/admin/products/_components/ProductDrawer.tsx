@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
 import { formatConditionLabel } from '@/lib/condition';
+import { toast } from '@/lib/toast';
 
 // ─── Badge Configs ────────────────────────────────────────────────────────────
 
@@ -191,12 +192,12 @@ export function ProductDrawer({
     try {
       setDeleting(true);
       await apiFetch(`/products/${productId}`, { method: 'DELETE' });
-      alert('Product deleted successfully!');
+      toast.success('Product deleted successfully!');
       onDeleteSuccess(productId);
       onClose();
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Failed to delete product.';
-      alert(errMsg);
+      toast.error(errMsg);
     } finally {
       setDeleting(false);
     }
@@ -375,16 +376,16 @@ export function ProductDrawer({
                     <h3 className="text-xs font-bold text-neutral-700 uppercase tracking-wider">Pallet Manifest Items</h3>
                   </div>
                   {product.manifest && Array.isArray(product.manifest) && product.manifest.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs text-left border-collapse">
+                    <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-neutral-300">
+                      <table className="min-w-165 w-full text-xs text-left border-collapse">
                         <thead className="bg-neutral-50 border-b border-neutral-200 font-bold text-neutral-700">
                           <tr>
-                            <th className="px-4 py-2.5">Product</th>
-                            <th className="px-4 py-2.5">Manufacturer</th>
-                            <th className="px-4 py-2.5">Condition</th>
-                            <th className="px-4 py-2.5 text-center">QTY</th>
-                            <th className="px-4 py-2.5 text-right">MSRP</th>
-                            <th className="px-4 py-2.5 text-right">EXT</th>
+                            <th className="px-4 py-2.5 min-w-50">Product</th>
+                            <th className="px-4 py-2.5 w-32.5 min-w-32.5 whitespace-nowrap">Manufacturer</th>
+                            <th className="px-4 py-2.5 w-32.5 min-w-32.5 whitespace-nowrap">Condition</th>
+                            <th className="px-4 py-2.5 text-center w-17.5 min-w-17.5 whitespace-nowrap">QTY</th>
+                            <th className="px-4 py-2.5 text-right w-22.5 min-w-22.5 whitespace-nowrap">MSRP</th>
+                            <th className="px-4 py-2.5 text-right w-25 min-w-25 whitespace-nowrap">EXT</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-neutral-100">
@@ -393,13 +394,13 @@ export function ProductDrawer({
                             return (
                               <tr key={idx} className="hover:bg-neutral-50/50">
                                 <td className="px-4 py-2.5 font-semibold text-neutral-900">{item.productName || item.product || '—'}</td>
-                                <td className="px-4 py-2.5 text-neutral-600">{item.manufacturer || '—'}</td>
-                                <td className="px-4 py-2.5 text-neutral-500">{item.condition || '—'}</td>
-                                <td className="px-4 py-2.5 text-center font-bold text-neutral-900">{item.qty || 1}</td>
-                                <td className="px-4 py-2.5 text-right text-neutral-700">
+                                <td className="px-4 py-2.5 text-neutral-600 whitespace-nowrap">{item.manufacturer || '—'}</td>
+                                <td className="px-4 py-2.5 text-neutral-500 whitespace-nowrap">{item.condition || '—'}</td>
+                                <td className="px-4 py-2.5 text-center font-bold text-neutral-900 whitespace-nowrap">{item.qty || 1}</td>
+                                <td className="px-4 py-2.5 text-right text-neutral-700 whitespace-nowrap">
                                   {item.msrp ? `$${Number(item.msrp).toFixed(2)}` : '—'}
                                 </td>
-                                <td className="px-4 py-2.5 text-right font-bold text-neutral-900">
+                                <td className="px-4 py-2.5 text-right font-bold text-neutral-900 whitespace-nowrap">
                                   {ext > 0 ? `$${ext.toFixed(2)}` : '—'}
                                 </td>
                               </tr>

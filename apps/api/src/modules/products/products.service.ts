@@ -300,6 +300,12 @@ export class ProductsService {
       costPrice,
       sku,
       weight,
+      manufacturer,
+      dimensionL,
+      dimensionW,
+      dimensionH,
+      liquidatorName,
+      liquidatorLogo,
       ...rest
     } = createProductDto;
 
@@ -354,6 +360,12 @@ export class ProductsService {
           costPrice: costPrice !== undefined && costPrice !== null ? Number(costPrice) : null,
           sku: sku || null,
           weight: weight !== undefined && weight !== null ? Number(weight) : null,
+          manufacturer: manufacturer || null,
+          dimensionL: dimensionL !== undefined && dimensionL !== null ? Number(dimensionL) : null,
+          dimensionW: dimensionW !== undefined && dimensionW !== null ? Number(dimensionW) : null,
+          dimensionH: dimensionH !== undefined && dimensionH !== null ? Number(dimensionH) : null,
+          liquidatorName: liquidatorName || null,
+          liquidatorLogo: liquidatorLogo || null,
           manifest: manifest ? (manifest as unknown as Prisma.InputJsonValue) : undefined,
           categoryId: resolvedCategoryId,
           ...(images && images.length > 0
@@ -458,6 +470,12 @@ export class ProductsService {
       costPrice,
       sku,
       weight,
+      manufacturer,
+      dimensionL,
+      dimensionW,
+      dimensionH,
+      liquidatorName,
+      liquidatorLogo,
       ...rest
     } = updateProductDto;
 
@@ -571,6 +589,12 @@ export class ProductsService {
       if (costPrice !== undefined) updateData.costPrice = costPrice !== null ? Number(costPrice) : null;
       if (sku !== undefined) updateData.sku = sku;
       if (weight !== undefined) updateData.weight = weight !== null ? Number(weight) : null;
+      if (manufacturer !== undefined) updateData.manufacturer = manufacturer || null;
+      if (dimensionL !== undefined) updateData.dimensionL = dimensionL !== null ? Number(dimensionL) : null;
+      if (dimensionW !== undefined) updateData.dimensionW = dimensionW !== null ? Number(dimensionW) : null;
+      if (dimensionH !== undefined) updateData.dimensionH = dimensionH !== null ? Number(dimensionH) : null;
+      if (liquidatorName !== undefined) updateData.liquidatorName = liquidatorName || null;
+      if (liquidatorLogo !== undefined) updateData.liquidatorLogo = liquidatorLogo || null;
       if (manifest !== undefined) updateData.manifest = manifest as unknown as Prisma.InputJsonValue;
       if (resolvedCategoryId !== undefined) updateData.category = resolvedCategoryId ? { connect: { id: resolvedCategoryId } } : { disconnect: true };
 

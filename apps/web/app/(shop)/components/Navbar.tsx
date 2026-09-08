@@ -95,7 +95,7 @@ export default function Navbar() {
               </button>
               <Link href="/" className="flex items-center">
                 <span className="text-primary text-3xl font-bold tracking-tight">
-                  Liquidation port
+                  Liquidation Port
                 </span>
               </Link>
             </div>

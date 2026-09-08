@@ -70,6 +70,12 @@ model Product {
   costPrice     Decimal?         @map("cost_price") @db.Decimal(10, 2)
   sku           String?
   weight        Decimal?         @db.Decimal(10, 2)
+  manufacturer  String?
+  dimensionL    Decimal?         @map("dimension_l") @db.Decimal(10, 2)
+  dimensionW    Decimal?         @map("dimension_w") @db.Decimal(10, 2)
+  dimensionH    Decimal?         @map("dimension_h") @db.Decimal(10, 2)
+  liquidatorName String?          @map("liquidator_name")
+  liquidatorLogo String?          @map("liquidator_logo")
   manifest      Json?
   ratingAvg     Decimal?         @default(0) @map("rating_avg") @db.Decimal(3, 2)
   ratingCount   Int?             @default(0) @map("rating_count")
@@ -92,6 +98,7 @@ model Product {
   @@index([name(ops: raw("gin_trgm_ops")), description(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("products")
 }
+
 
 model ProductTag {
   productId String  @map("product_id") @db.Uuid
