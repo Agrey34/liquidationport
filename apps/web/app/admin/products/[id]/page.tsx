@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { toast } from '@/lib/toast';
+import { getCleanErrorMessage } from '@/lib/error-utils';
 
 // ─── Helper Types ─────────────────────────────────────────────────────────────
 
@@ -69,7 +70,7 @@ export default function ProductDetailsPage({ params }: { params: Promise<{ id: s
         setProduct(res.data);
       } catch (err: unknown) {
         console.error('Failed to load product details:', err);
-        setError(err instanceof Error ? err.message : 'Product not found.');
+        setError(getCleanErrorMessage(err, 'Product not found.'));
       } finally {
         setLoading(false);
       }

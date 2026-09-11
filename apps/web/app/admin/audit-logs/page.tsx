@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import api from '../../../lib/api';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 interface AuditLog {
   id: string;
@@ -50,7 +51,7 @@ export default function AuditLogsPage() {
       const response = await api.get<AuditLogResponse>(`/audit?${queryParams.toString()}`);
       setLogs(response.items || []);
     } catch (err) {
-      setError((err as Error).message || 'Failed to load audit logs');
+      setError(getCleanErrorMessage(err, 'Unable to load audit logs. Please try again shortly.'));
     } finally {
       setLoading(false);
     }

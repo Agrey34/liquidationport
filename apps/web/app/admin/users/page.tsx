@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import api from '../../../lib/api';
 import { createClient } from '../../../lib/supabase/client';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -395,7 +396,7 @@ export default function UsersPage() {
         return data.find(u => u.id === prev.id) ?? prev;
       });
     } catch (err) {
-      setError((err as Error).message || 'Failed to fetch users');
+      setError(getCleanErrorMessage(err, 'Unable to load users. Please try again shortly.'));
     } finally {
       setLoading(false);
     }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { X, Send, AlertCircle } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 export default function CustomerForgotPasswordPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function CustomerForgotPasswordPage() {
       });
 
       if (resetError) {
-        setError(resetError.message);
+        setError(getCleanErrorMessage(resetError, 'Unable to send password reset link. Please try again later.'));
         setIsLoading(false);
         return;
       }
@@ -37,7 +38,7 @@ export default function CustomerForgotPasswordPage() {
       setIsSubmitted(true);
       setIsLoading(false);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to send reset link.');
+      setError(getCleanErrorMessage(err, 'Failed to send reset link. Please try again.'));
       setIsLoading(false);
     }
   };

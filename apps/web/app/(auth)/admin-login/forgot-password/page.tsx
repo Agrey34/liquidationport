@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { resetPasswordForEmail } from '../../../auth/actions';
+import { getCleanErrorMessage } from '../../../../lib/error-utils';
 
 export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export default function ForgotPasswordPage() {
     const result = await resetPasswordForEmail(formData);
     
     if (result?.error) {
-      setError(result.error);
+      setError(getCleanErrorMessage(result.error, 'Unable to send password reset link. Please try again later.'));
       setLoading(false);
     }
   };

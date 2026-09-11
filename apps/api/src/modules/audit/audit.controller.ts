@@ -6,7 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('audit')
 @UseGuards(SupabaseAuthGuard, RolesGuard)
-@Roles('admin') // Only admins can view audit logs
+@Roles('admin', 'super_admin')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { login } from '../../auth/actions';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +34,7 @@ export default function LoginPage() {
     const result = await login(formData);
     
     if (result?.error) {
-      setError(result.error);
+      setError(getCleanErrorMessage(result.error, 'Unable to sign in. Please verify your credentials and try again.'));
       setLoading(false);
     }
     // On success, redirect is handled by server action

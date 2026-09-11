@@ -95,14 +95,14 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       } else if (prismaError.code === 'P2003') {
         status = HttpStatus.BAD_REQUEST;
         clientMessage = 'Invalid reference: a related record could not be found.';
-      } else if (['P1000', 'P1001', 'P1002', 'P1008', 'P1017'].includes(prismaError.code)) {
-        // Database connection / pooler reachability issues
+      } else if (['P1000', 'P1001', 'P1002', 'P1008', 'P1017', 'P2028'].includes(prismaError.code)) {
+        
         status = HttpStatus.SERVICE_UNAVAILABLE;
-        clientMessage = 'Service is temporarily unavailable. Please try again in a few moments.';
+        clientMessage = 'Service is temporarily busy or unavailable. Please try again in a few moments.';
       } else {
-        // Any other database error is a 500 internal error — never expose raw query/schema
+        // Any other database error is a 500 internal error — never expose raw query/schema or internal terms
         status = HttpStatus.INTERNAL_SERVER_ERROR;
-        clientMessage = 'A database error occurred. Please try again later.';
+        clientMessage = 'Something went wrong on our end. Please try again later.';
       }
     }
     // 3. Any other unhandled error

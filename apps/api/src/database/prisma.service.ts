@@ -6,12 +6,38 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
-    // Pass robust pool configurations securely via the constructor block if not natively bounded in the URL
     super();
   }
 
   async onModuleInit() {
     await this.connectWithRetry();
+  }
+
+  /**
+   * Resilient execution wrapper for queries with automatic retry on transient pooler drops (P1001, P1002, P1008, P1017)
+   */
+  async withRetry<T>(operation: () => Promise<T>, maxRetries = 2): Promise<T> {
+    let attempts = 0;
+    while (true) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        attempts++;
+        const isConnectionError =
+          error?.code &&
+          ['P1001', 'P1002', 'P1008', 'P1017'].includes(error.code);
+
+        if (!isConnectionError || attempts > maxRetries) {
+          throw error;
+        }
+
+        const delay = attempts * 300;
+        this.logger.warn(
+          `[Transient DB Connectivity Notice - ${error.code}] Retrying database operation (Attempt ${attempts}/${maxRetries}) in ${delay}ms...`,
+        );
+        await new Promise((res) => setTimeout(res, delay));
+      }
+    }
   }
 
   private async connectWithRetry(maxRetries = 5, initialDelayMs = 1000) {
@@ -40,11 +66,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
               'SUPABASE_DATABASE_URL appears invalid for this project (tenant/user mismatch). Verify host, username, and password in your environment.',
             );
           }
-          throw new Error(
-            tenantOrUserIssue
-              ? 'Database connection failed: invalid Supabase database credentials or tenant configuration.'
-              : 'Database connection failed during Prisma initialization after retries.',
+          // Do not crash the entire process so that GlobalHttpExceptionFilter and health checks can respond with 503
+          this.logger.error(
+            'Database connection could not be established on startup. Server running in degraded state; will attempt reconnection on demand.',
           );
+          return;
         }
 
         this.logger.warn(

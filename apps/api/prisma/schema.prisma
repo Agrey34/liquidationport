@@ -15,6 +15,11 @@ model User {
   email          String          @unique
   role           String          @default("customer")
   status         String          @default("active")
+  firstName      String?         @map("first_name")
+  lastName       String?         @map("last_name")
+  buyerType      String?         @default("Retail Buyer") @map("buyer_type")
+  companyName    String?         @map("company_name")
+  phone          String?         @unique
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @default(now()) @map("updated_at")
   deletedAt      DateTime?       @map("deleted_at")
@@ -158,12 +163,15 @@ model ProductReview {
 }
 
 model Cart {
-  id        String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  userId    String?    @unique @map("user_id") @db.Uuid
-  createdAt DateTime   @default(now()) @map("created_at")
-  items     CartItem[]
-  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id               String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  userId           String?    @unique @map("user_id") @db.Uuid
+  createdAt        DateTime   @default(now()) @map("created_at")
+  reservedUntil    DateTime?  @map("reserved_until") @db.Timestamptz()
+  reservationToken String?    @map("reservation_token") @db.Uuid
+  items            CartItem[]
+  user             User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([reservedUntil])
   @@map("carts")
 }
 

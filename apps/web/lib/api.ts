@@ -8,30 +8,28 @@ export interface ApiResponse<T> {
   meta?: Record<string, unknown>;
 }
 
+export class ApiError extends Error {
+  status: number;
+  data?: any;
+  field?: string;
+
+  constructor(message: string, status: number, data?: any) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+    this.field = data?.field;
+  }
+}
+
 interface ExtendedRequestInit extends RequestInit {
   _isRetry?: boolean;
 }
 
-// Patterns that indicate internal server/database leaks
-const SENSITIVE_ERROR_PATTERNS = [
-  /prisma/i,
-  /database/i,
-  /\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/, // IP addresses
-  /:\d{4,5}\b/, // Ports
-  /[a-z]:\\[^"'\n]+/i, // Windows paths
-  /\/(?:home|usr|var|app|src|node_modules)\/[^"'\n]+/i, // Unix paths
-  /invocation in/i,
-  /findfirst|findunique|findmany/i,
-  /failed to connect to api at/i,
-];
+import { getCleanErrorMessage } from './error-utils';
 
-export function sanitizeClientErrorMessage(msg: unknown): string {
-  if (!msg) return 'An unexpected error occurred.';
-  const str = typeof msg === 'string' ? msg : String(msg);
-  if (SENSITIVE_ERROR_PATTERNS.some((p) => p.test(str))) {
-    return 'Unable to complete this request right now. Please try again in a few moments.';
-  }
-  return str;
+export function sanitizeClientErrorMessage(msg: unknown, fallback?: string): string {
+  return getCleanErrorMessage(msg, fallback);
 }
 
 /**
@@ -147,9 +145,8 @@ export async function apiFetch<T>(
       : errorData?.message || `Request failed (${response.status})`;
 
     // Log internally to console for developer debugging
-    console.error(`[apiFetch] API error response ${response.status} from ${url}:`, rawMessage);
-
-    throw new Error(sanitizeClientErrorMessage(rawMessage));
+    const sanitized = sanitizeClientErrorMessage(rawMessage);
+    throw new ApiError(sanitized, response.status, errorData);
   }
 
   // All success responses from NestJS are wrapped in { data: T }

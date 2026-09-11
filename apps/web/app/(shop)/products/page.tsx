@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
 import { formatConditionLabel } from '@/lib/condition';
+import { getCleanErrorMessage } from '@/lib/error-utils';
 import PalletCard from '@/app/(shop)/components/PalletCard';
 
 interface ApiProduct {
@@ -138,7 +139,7 @@ function ProductsCatalogContent() {
         setPallets(mapped);
       } catch (err: unknown) {
         console.error('Failed to load products for catalog:', err);
-        setError(err instanceof Error ? err.message : 'Failed to fetch inventory.');
+        setError(getCleanErrorMessage(err, 'Unable to load inventory at this time. Please try again shortly.'));
       } finally {
         setLoading(false);
       }

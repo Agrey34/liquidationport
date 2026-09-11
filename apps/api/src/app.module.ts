@@ -9,6 +9,7 @@ import { OrdersModule } from './modules/orders/orders.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { TagsModule } from './modules/tags/tags.module';
 import { UsersModule } from './modules/users/users.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { CartsModule } from './modules/carts/carts.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
@@ -73,6 +74,7 @@ import { validate } from './config/env.validation';
     CategoriesModule,
     TagsModule,
     UsersModule,
+    AuthModule,
     AddressesModule,
     CartsModule,
     CouponsModule,

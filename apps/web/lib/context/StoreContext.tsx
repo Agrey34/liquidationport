@@ -1,238 +1,105 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { apiFetch } from '../api';
+import { createClient } from '../supabase/client';
 
-export interface CartItem {
-  id: string;
-  productId?: string;
-  title: string;
-  price: number;
-  qty: number;
-  img: string;
-  sku?: string;
-  slug?: string;
-  retailer?: string;
-  condition?: string;
-  conditionGrade?: string;
-  lotSize?: string;
-  unitsCount?: number;
-}
-
-export interface WishlistItem {
-  id: string;
-  title: string;
-  price: number;
-  msrp?: number;
-  img: string;
-  slug?: string;
-  retailer?: string;
-  condition?: string;
-  conditionGrade?: string;
-  qty?: number;
-  category?: string;
-  status?: string;
-}
+export interface CartItem { id: string; cartItemId?: string; productId?: string; title: string; price: number; qty: number; img: string; sku?: string; slug?: string; retailer?: string; condition?: string; conditionGrade?: string; lotSize?: string; unitsCount?: number; }
+export interface WishlistItem { id: string; title: string; price: number; msrp?: number; img: string; slug?: string; retailer?: string; condition?: string; conditionGrade?: string; qty?: number; category?: string; status?: string; }
 
 interface StoreContextType {
-  // Cart
-  cart: CartItem[];
-  cartCount: number;
-  cartSubtotal: number;
-  isCartOpen: boolean;
-  addToCart: (item: Omit<CartItem, 'qty'> & { qty?: number }, qty?: number) => void;
-  removeFromCart: (id: string) => void;
-  updateCartQty: (id: string, qty: number) => void;
-  clearCart: () => void;
-  openCart: () => void;
-  closeCart: () => void;
-  setIsCartOpen: (open: boolean) => void;
-
-  // Wishlist
-  wishlist: WishlistItem[];
-  wishlistCount: number;
-  isWishlistOpen: boolean;
-  addToWishlist: (item: WishlistItem) => void;
-  removeFromWishlist: (id: string) => void;
-  toggleWishlist: (item: WishlistItem) => void;
-  isInWishlist: (id: string) => boolean;
-  openWishlist: () => void;
-  closeWishlist: () => void;
-  setIsWishlistOpen: (open: boolean) => void;
+  cart: CartItem[]; cartCount: number; cartSubtotal: number; isCartOpen: boolean;
+  addToCart: (item: Omit<CartItem, 'qty'> & { qty?: number }, qty?: number) => Promise<void>; removeFromCart: (id: string) => Promise<void>; updateCartQty: (id: string, qty: number) => Promise<void>; clearCart: () => Promise<void>; refreshCart: () => Promise<void>; syncCart: (items: CartItem[]) => void; openCart: () => void; closeCart: () => void; setIsCartOpen: (open: boolean) => void;
+  wishlist: WishlistItem[]; wishlistCount: number; isWishlistOpen: boolean;
+  addToWishlist: (item: WishlistItem) => Promise<void>; removeFromWishlist: (id: string) => Promise<void>; toggleWishlist: (item: WishlistItem) => Promise<void>; refreshWishlist: () => Promise<void>; isInWishlist: (id: string) => boolean; openWishlist: () => void; closeWishlist: () => void; setIsWishlistOpen: (open: boolean) => void; resetStore: () => void;
 }
-
+type DbCart = { items?: Array<{ id: string; quantity: number; variant: { id: string; productId: string; sku?: string; price: number | string; condition?: string; product: { name: string; slug: string; condition?: string; media?: Array<{ url: string }> } } }> };
+type DbWishlistItem = { product?: { id: string; name: string; slug: string; price: number | string; condition?: string; media?: Array<{ url: string }> } };
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
+const CART_STORAGE_KEY = 'guest_cart';
+const WISHLIST_STORAGE_KEY = 'guest_wishlist';
 
-const CART_STORAGE_KEY = 'lp_cart_v1';
-const WISHLIST_STORAGE_KEY = 'lp_wishlist_v1';
+const mapCart = (cart: DbCart): CartItem[] => (cart.items ?? []).map((item) => ({ id: item.variant.id, cartItemId: item.id, productId: item.variant.productId, title: item.variant.product.name, price: Number(item.variant.price), qty: item.quantity, sku: item.variant.sku, img: item.variant.product.media?.[0]?.url ?? '', slug: item.variant.product.slug, condition: item.variant.condition ?? item.variant.product.condition }));
+const mapWishlist = (items: DbWishlistItem[]): WishlistItem[] => items.flatMap(({ product }) => product ? [{ id: product.id, title: product.name, price: Number(product.price), img: product.media?.[0]?.url ?? '', slug: product.slug, condition: product.condition }] : []);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
+  const [cart, setCart] = useState<CartItem[]>([]); const [wishlist, setWishlist] = useState<WishlistItem[]>([]); const [isCartOpen, setIsCartOpen] = useState(false); const [isWishlistOpen, setIsWishlistOpen] = useState(false); const [isHydrated, setIsHydrated] = useState(false);
+  const cartFetchRef = useRef<Promise<void> | null>(null);
+  const wishlistFetchRef = useRef<Promise<void> | null>(null);
+  const addingItemIdsRef = useRef<Set<string>>(new Set());
+  const getSession = useCallback(async () => (await createClient().auth.getSession()).data.session, []);
+  useEffect(() => { try { setCart(JSON.parse(localStorage.getItem(CART_STORAGE_KEY) ?? '[]')); setWishlist(JSON.parse(localStorage.getItem(WISHLIST_STORAGE_KEY) ?? '[]')); } catch { localStorage.removeItem(CART_STORAGE_KEY); localStorage.removeItem(WISHLIST_STORAGE_KEY); } finally { setIsHydrated(true); } }, []);
+  useEffect(() => { if (isHydrated) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart)); }, [cart, isHydrated]);
+  useEffect(() => { if (isHydrated) localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlist)); }, [wishlist, isHydrated]);
+  const refreshCart = useCallback(async () => { if (cartFetchRef.current) return cartFetchRef.current; const request = (async () => { if (!(await getSession())) return; setCart(mapCart((await apiFetch<DbCart>('/carts')).data)); })(); cartFetchRef.current = request; try { await request; } finally { if (cartFetchRef.current === request) cartFetchRef.current = null; } }, [getSession]);
+  const refreshWishlist = useCallback(async () => { if (wishlistFetchRef.current) return wishlistFetchRef.current; const request = (async () => { if (!(await getSession())) return; setWishlist(mapWishlist((await apiFetch<DbWishlistItem[]>('/carts/wishlist')).data)); })(); wishlistFetchRef.current = request; try { await request; } finally { if (wishlistFetchRef.current === request) wishlistFetchRef.current = null; } }, [getSession]);
 
-  // Hydrate from localStorage
-  useEffect(() => {
+  const addToCart = useCallback(async (item: Omit<CartItem, 'qty'> & { qty?: number }, addedQty = 1) => {
+    const quantity = item.qty ?? addedQty;
+    const itemId = item.id;
+
+    // Deduplication: ignore duplicate clicks while the exact same item is already being added
+    if (addingItemIdsRef.current.has(itemId)) return;
+    addingItemIdsRef.current.add(itemId);
+
+    // 1. Instant Optimistic UI update
+    setCart((old) => {
+      const found = old.find((entry) => entry.id === itemId);
+      return found ? old.map((entry) => entry.id === itemId ? { ...entry, qty: entry.qty + quantity } : entry) : [...old, { ...item, qty: quantity }];
+    });
+    setIsCartOpen(true);
+
     try {
-      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-      if (savedCart) {
-        setCart(JSON.parse(savedCart));
+      const session = await getSession();
+      if (session) {
+        const res = await apiFetch<DbCart>('/carts/items', {
+          method: 'POST',
+          body: JSON.stringify({ variantId: itemId, quantity }),
+        });
+        if (res?.data?.items) {
+          setCart(mapCart(res.data));
+        }
       }
-
-      const savedWishlist = localStorage.getItem(WISHLIST_STORAGE_KEY);
-      if (savedWishlist) {
-        setWishlist(JSON.parse(savedWishlist));
-      }
-    } catch (e) {
-      console.warn('Failed to load cart/wishlist from localStorage:', e);
+    } catch (err) {
+      await refreshCart();
+      throw err;
     } finally {
-      setIsHydrated(true);
+      addingItemIdsRef.current.delete(itemId);
     }
-  }, []);
+  }, [getSession, refreshCart]);
 
-  // Sync Cart to localStorage
-  useEffect(() => {
-    if (!isHydrated) return;
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    } catch (e) {
-      console.warn('Failed to save cart to localStorage:', e);
-    }
-  }, [cart, isHydrated]);
-
-  // Sync Wishlist to localStorage
-  useEffect(() => {
-    if (!isHydrated) return;
-    try {
-      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlist));
-    } catch (e) {
-      console.warn('Failed to save wishlist to localStorage:', e);
-    }
-  }, [wishlist, isHydrated]);
-
-  // Cart Handlers
-  const addToCart = useCallback((item: Omit<CartItem, 'qty'> & { qty?: number }, addedQty: number = 1) => {
-    const quantityToAdd = item.qty || addedQty || 1;
-    setCart((prev) => {
-      const existingIdx = prev.findIndex((i) => i.id === item.id);
-      if (existingIdx > -1) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          qty: updated[existingIdx].qty + quantityToAdd,
-        };
-        return updated;
-      } else {
-        return [...prev, { ...item, qty: quantityToAdd }];
+  const removeFromCart = useCallback(async (id: string) => {
+    const item = cart.find((entry) => entry.id === id);
+    setCart((old) => old.filter((entry) => entry.id !== id));
+    if ((await getSession()) && item?.cartItemId) {
+      try {
+        const res = await apiFetch<DbCart>(`/carts/items/${item.cartItemId}`, { method: 'DELETE' });
+        if (res?.data?.items) setCart(mapCart(res.data));
+      } catch {
+        await refreshCart();
       }
-    });
-    setIsCartOpen(true);
-  }, []);
-
-  const removeFromCart = useCallback((id: string) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
-  }, []);
-
-  const updateCartQty = useCallback((id: string, qty: number) => {
-    if (qty <= 0) {
-      setCart((prev) => prev.filter((item) => item.id !== id));
-    } else {
-      setCart((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, qty } : item))
-      );
     }
-  }, []);
+  }, [cart, getSession, refreshCart]);
 
-  const clearCart = useCallback(() => {
-    setCart([]);
-  }, []);
-
-  const openCart = useCallback(() => {
-    setIsWishlistOpen(false);
-    setIsCartOpen(true);
-  }, []);
-
-  const closeCart = useCallback(() => setIsCartOpen(false), []);
-
-  // Wishlist Handlers
-  const addToWishlist = useCallback((item: WishlistItem) => {
-    setWishlist((prev) => {
-      if (prev.some((i) => i.id === item.id)) return prev;
-      return [...prev, item];
-    });
-    setIsWishlistOpen(true);
-  }, []);
-
-  const removeFromWishlist = useCallback((id: string) => {
-    setWishlist((prev) => prev.filter((item) => item.id !== id));
-  }, []);
-
-  const isInWishlist = useCallback(
-    (id: string) => wishlist.some((item) => item.id === id),
-    [wishlist]
-  );
-
-  const toggleWishlist = useCallback((item: WishlistItem) => {
-    setWishlist((prev) => {
-      const exists = prev.some((i) => i.id === item.id);
-      if (exists) {
-        return prev.filter((i) => i.id !== item.id);
-      } else {
-        return [...prev, item];
+  const updateCartQty = useCallback(async (id: string, qty: number) => {
+    const item = cart.find((entry) => entry.id === id);
+    setCart((old) => qty <= 0 ? old.filter((entry) => entry.id !== id) : old.map((entry) => entry.id === id ? { ...entry, qty } : entry));
+    if ((await getSession()) && item?.cartItemId) {
+      try {
+        const res = await apiFetch<DbCart>(`/carts/items/${item.cartItemId}`, qty <= 0 ? { method: 'DELETE' } : { method: 'PATCH', body: JSON.stringify({ quantity: qty }) });
+        if (res?.data?.items) setCart(mapCart(res.data));
+      } catch {
+        await refreshCart();
       }
-    });
-  }, []);
+    }
+  }, [cart, getSession, refreshCart]);
 
-  const openWishlist = useCallback(() => {
-    setIsCartOpen(false);
-    setIsWishlistOpen(true);
-  }, []);
-
-  const closeWishlist = useCallback(() => setIsWishlistOpen(false), []);
-
-  const cartCount = cart.reduce((total, item) => total + (item.qty || 1), 0);
-  const cartSubtotal = cart.reduce((sum, item) => sum + (item.price * (item.qty || 1)), 0);
-  const wishlistCount = wishlist.length;
-
-  return (
-    <StoreContext.Provider
-      value={{
-        cart,
-        cartCount,
-        cartSubtotal,
-        isCartOpen,
-        addToCart,
-        removeFromCart,
-        updateCartQty,
-        clearCart,
-        openCart,
-        closeCart,
-        setIsCartOpen,
-        wishlist,
-        wishlistCount,
-        isWishlistOpen,
-        addToWishlist,
-        removeFromWishlist,
-        toggleWishlist,
-        isInWishlist,
-        openWishlist,
-        closeWishlist,
-        setIsWishlistOpen,
-      }}
-    >
-      {children}
-    </StoreContext.Provider>
-  );
+  const clearCart = useCallback(async () => { if (await getSession()) { await Promise.all(cart.flatMap((item) => item.cartItemId ? [apiFetch(`/carts/items/${item.cartItemId}`, { method: 'DELETE' })] : [])); await refreshCart(); } else setCart([]); }, [cart, getSession, refreshCart]);
+  const addToWishlist = useCallback(async (item: WishlistItem) => { if (await getSession()) { await apiFetch(`/carts/wishlist/items/${item.id}`, { method: 'POST' }); await refreshWishlist(); } else setWishlist((old) => old.some((entry) => entry.id === item.id) ? old : [...old, item]); setIsWishlistOpen(true); }, [getSession, refreshWishlist]);
+  const removeFromWishlist = useCallback(async (id: string) => { if (await getSession()) { await apiFetch(`/carts/wishlist/items/${id}`, { method: 'DELETE' }); await refreshWishlist(); } else setWishlist((old) => old.filter((entry) => entry.id !== id)); }, [getSession, refreshWishlist]);
+  const toggleWishlist = useCallback(async (item: WishlistItem) => { if (wishlist.some((entry) => entry.id === item.id)) await removeFromWishlist(item.id); else await addToWishlist(item); }, [addToWishlist, removeFromWishlist, wishlist]);
+  const resetStore = useCallback(() => { setIsHydrated(false); localStorage.clear(); setCart([]); setWishlist([]); setIsCartOpen(false); setIsWishlistOpen(false); }, []);
+  return <StoreContext.Provider value={{ cart, cartCount: cart.reduce((sum, item) => sum + item.qty, 0), cartSubtotal: cart.reduce((sum, item) => sum + item.price * item.qty, 0), isCartOpen, addToCart, removeFromCart, updateCartQty, clearCart, refreshCart, syncCart: setCart, openCart: () => { setIsWishlistOpen(false); setIsCartOpen(true); }, closeCart: () => setIsCartOpen(false), setIsCartOpen, wishlist, wishlistCount: wishlist.length, isWishlistOpen, addToWishlist, removeFromWishlist, toggleWishlist, refreshWishlist, isInWishlist: (id) => wishlist.some((item) => item.id === id), openWishlist: () => { setIsCartOpen(false); setIsWishlistOpen(true); }, closeWishlist: () => setIsWishlistOpen(false), setIsWishlistOpen, resetStore }}>{children}</StoreContext.Provider>;
 }
-
-export function useStore() {
-  const context = useContext(StoreContext);
-  if (!context) {
-    throw new Error('useStore must be used within a StoreProvider');
-  }
-  return context;
-}
-
-export const useCart = useStore;
-export const useWishlist = useStore;
+export function useStore() { const context = useContext(StoreContext); if (!context) throw new Error('useStore must be used within a StoreProvider'); return context; }
+export const useCart = useStore; export const useWishlist = useStore;

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '../../lib/supabase/server'
+import { getCleanErrorMessage } from '../../lib/error-utils'
 
 // --------------------------------------------------------------------------------
 // LOGIN
@@ -27,7 +28,7 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: getCleanErrorMessage(error, 'Unable to sign in. Please verify your credentials and try again.') }
   }
 
   // Determine target path: prioritize explicit redirectTo, ensure valid admin path
@@ -47,6 +48,8 @@ export async function login(formData: FormData) {
 export async function signup(formData: FormData) {
   const supabase = await createClient()
 
+  const firstName = (formData.get('firstName') as string)?.trim() || ''
+  const lastName = (formData.get('lastName') as string)?.trim() || ''
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
@@ -73,13 +76,16 @@ export async function signup(formData: FormData) {
     options: {
       emailRedirectTo: `${origin}/auth/callback?next=/admin/products/create`,
       data: {
-        role: 'admin', // This maps to app_metadata (optional usage depending on your exact RLS)
+        first_name: firstName,
+        last_name: lastName,
+        full_name: [firstName, lastName].filter(Boolean).join(' '),
+        role: 'admin',
       }
     }
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: getCleanErrorMessage(error, 'Unable to create account. Please try again shortly.') }
   }
 
   // Redirect to a verification pending page
@@ -106,7 +112,7 @@ export async function resetPasswordForEmail(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: getCleanErrorMessage(error, 'Unable to send password reset link. Please try again later.') }
   }
 
   redirect('/admin-login/verify?message=Password reset link has been sent to your email')
@@ -131,7 +137,7 @@ export async function updatePassword(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: getCleanErrorMessage(error, 'Unable to update password. Please try again.') }
   }
 
   redirect('/admin-login?message=Password successfully updated')

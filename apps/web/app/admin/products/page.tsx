@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
 import { ProductDrawer } from './_components/ProductDrawer';
 import { toast } from '@/lib/toast';
+import { getCleanErrorMessage } from '@/lib/error-utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -216,8 +217,7 @@ export default function ProductsPage() {
       setProducts(mapped);
     } catch (err: unknown) {
       console.error('Failed to fetch products:', err);
-      const errMsg = err instanceof Error ? err.message : 'An unexpected error occurred while loading products.';
-      setError(errMsg);
+      setError(getCleanErrorMessage(err, 'Unable to load products. Please try again shortly.'));
     } finally {
       setLoading(false);
     }

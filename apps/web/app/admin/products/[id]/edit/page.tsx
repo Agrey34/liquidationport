@@ -8,6 +8,7 @@ import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
 import { STANDARD_CONDITIONS, DEFAULT_CONDITION, formatConditionLabel } from '@/lib/condition';
 import { toast } from '@/lib/toast';
+import { getCleanErrorMessage } from '@/lib/error-utils';
 import {
   ArrowLeft,
   Upload,
@@ -463,7 +464,7 @@ export default function EditProductPage({ params }: { params: Promise<{ id: stri
         }
       } catch (err: unknown) {
         console.error('Failed to load product for editing:', err);
-        setError(err instanceof Error ? err.message : 'Product not found.');
+        setError(getCleanErrorMessage(err, 'Product not found.'));
       } finally {
         setLoading(false);
       }

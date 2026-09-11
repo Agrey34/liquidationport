@@ -49,13 +49,39 @@ export class UsersService {
   }
 
   async findProfile(userId: string) {
-    const user = await this.prisma.user.findUnique({
+    let user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         addresses: true,
         orders: { take: 5, orderBy: { createdAt: 'desc' } },
       },
     });
+
+    if (!user && this.supabaseAdmin) {
+      try {
+        const { data: authData } = await this.supabaseAdmin.auth.admin.getUserById(userId);
+        if (authData?.user) {
+          const meta = authData.user.user_metadata || {};
+          const fullNameParts = (meta.full_name || '').split(' ');
+          user = await this.prisma.user.create({
+            data: {
+              id: userId,
+              email: authData.user.email!,
+              firstName: meta.first_name || fullNameParts[0] || 'Member',
+              lastName: meta.last_name || fullNameParts.slice(1).join(' ') || '',
+              buyerType: meta.buyer_type || 'Retail Buyer',
+              role: 'customer',
+            },
+            include: {
+              addresses: true,
+              orders: { take: 5, orderBy: { createdAt: 'desc' } },
+            },
+          });
+        }
+      } catch (e) {
+        // ignore error
+      }
+    }
 
     if (!user) {
       throw new NotFoundException('User profile not found in database');
@@ -64,7 +90,180 @@ export class UsersService {
     return user;
   }
 
+  async getDashboardOverview(userId: string) {
+    // 1. Fetch user from DB or Supabase Auth fallback
+    let user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        buyerType: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      // Auto-provision if authenticated in Supabase but not yet in public.users
+      if (this.supabaseAdmin) {
+        try {
+          const { data: authData } = await this.supabaseAdmin.auth.admin.getUserById(userId);
+          if (authData?.user) {
+            const meta = authData.user.user_metadata || {};
+            const fullNameParts = (meta.full_name || '').split(' ');
+            user = await this.prisma.user.create({
+              data: {
+                id: userId,
+                email: authData.user.email!,
+                firstName: meta.first_name || fullNameParts[0] || 'Member',
+                lastName: meta.last_name || fullNameParts.slice(1).join(' ') || '',
+                buyerType: meta.buyer_type || 'Retail Buyer',
+                role: 'customer',
+              },
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                buyerType: true,
+                role: true,
+              },
+            });
+          }
+        } catch (e) {
+          // ignore error
+        }
+      }
+      if (!user) {
+        throw new NotFoundException('User profile not found');
+      }
+    }
+
+    const firstName = user.firstName || user.email.split('@')[0] || 'Member';
+    const lastName = user.lastName || '';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ');
+    const firstInitial = firstName.trim()[0]?.toUpperCase() || 'U';
+    const lastInitial = lastName.trim()[0]?.toUpperCase() || '';
+    const initials = `${firstInitial}${lastInitial}` || firstInitial;
+
+    // 2. Parallel Metrics Aggregation
+    const [activeOrdersCount, spendAggregate, savedAddressesCount, recentOrder] = await Promise.all([
+      // Count of orders where status is NOT delivered and NOT cancelled
+      this.prisma.order.count({
+        where: {
+          userId,
+          status: { notIn: ['delivered', 'cancelled'] },
+        },
+      }),
+
+      // Lifetime spend sum over all completed/active orders
+      this.prisma.order.aggregate({
+        where: {
+          userId,
+          status: { in: ['paid', 'processing', 'shipped', 'delivered'] },
+        },
+        _sum: { total: true },
+      }),
+
+      // Saved addresses count
+      this.prisma.address.count({
+        where: { userId },
+      }),
+
+      // Single most recent order
+      this.prisma.order.findFirst({
+        where: {
+          userId,
+          status: { not: 'cancelled' },
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          shipment: true,
+          items: { take: 1 },
+        },
+      }),
+    ]);
+
+    const lifetimeSpendNumber = Number(spendAggregate._sum.total || 0);
+    const formattedLifetimeSpend = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    }).format(lifetimeSpendNumber);
+
+    // Format recent tracking record if available
+    let recentTracking = null;
+    if (recentOrder) {
+      const orderShortId = recentOrder.id.slice(0, 5).toUpperCase();
+      const statusLabels: Record<string, string> = {
+        pending: 'Payment Pending',
+        paid: 'Payment Confirmed',
+        processing: 'Processing at Facility',
+        shipped: 'In Transit with Carrier',
+        delivered: 'Delivered',
+        cancelled: 'Cancelled',
+      };
+
+      const baseDate = recentOrder.shipment?.shippedAt || recentOrder.createdAt;
+      const estDate = new Date(new Date(baseDate).getTime() + 5 * 24 * 60 * 60 * 1000);
+      const formattedDelivery = estDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+
+      recentTracking = {
+        orderId: recentOrder.id,
+        orderNumber: `#LP-${orderShortId}`,
+        status: recentOrder.status,
+        statusDisplay: statusLabels[recentOrder.status] || 'Processing at Facility',
+        estimatedDelivery: formattedDelivery,
+        carrier: recentOrder.shipment?.carrier || 'Freight Logistics',
+        trackingNumber: recentOrder.shipment?.tracking || null,
+        trackUrl: `/account/orders/${recentOrder.id}`,
+      };
+    }
+
+    return {
+      profile: {
+        id: user.id,
+        email: user.email,
+        firstName,
+        lastName,
+        fullName,
+        initials,
+        buyerType: user.buyerType || 'Retail Buyer',
+      },
+      metrics: {
+        activeOrdersCount,
+        lifetimeSpend: lifetimeSpendNumber,
+        formattedLifetimeSpend,
+        savedAddressesCount,
+      },
+      recentTracking,
+    };
+  }
+
   async updateProfile(userId: string, updateUserDto: UpdateUserDto) {
+    let user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user && this.supabaseAdmin) {
+      try {
+        const { data: authData } = await this.supabaseAdmin.auth.admin.getUserById(userId);
+        if (authData?.user) {
+          user = await this.prisma.user.create({
+            data: {
+              id: userId,
+              email: authData.user.email!,
+              role: 'customer',
+            },
+          });
+        }
+      } catch (e) {
+        // ignore error
+      }
+    }
+
     return this.prisma.user.update({
       where: { id: userId },
       data: updateUserDto,

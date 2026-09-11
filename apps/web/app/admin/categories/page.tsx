@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { apiFetch } from '../../../lib/api';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 interface Category {
   id: string;
@@ -69,7 +70,7 @@ export default function CategoriesPage() {
         return;
       }
       console.error('Failed to load categories/tags:', err);
-      setError(err instanceof Error ? err.message : 'Failed to connect to database.');
+      setError(getCleanErrorMessage(err, 'Unable to load categories. Please try again shortly.'));
     } finally {
       if (!signal?.aborted) {
         setLoading(false);

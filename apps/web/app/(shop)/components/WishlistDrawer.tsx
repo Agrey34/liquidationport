@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, Heart, Trash2, ShoppingCart, ArrowRight, Package } from 'lucide-react';
+import { X, Heart, Trash2, ShoppingCart, ArrowRight, Package, Loader2 } from 'lucide-react';
 import { useWishlist, useCart } from '../../../lib/context/StoreContext';
 import { formatConditionLabel } from '../../../lib/condition';
 
@@ -16,22 +16,13 @@ export default function WishlistDrawer({ isOpen, onClose }: WishlistDrawerProps)
   const { wishlist, wishlistCount, removeFromWishlist } = useWishlist();
   const { addToCart, openCart } = useCart();
 
-  const handleMoveToCart = (pallet: typeof wishlist[0]) => {
-    addToCart({
-      id: pallet.id,
-      title: pallet.title,
-      price: pallet.price,
-      img: pallet.img,
-      slug: pallet.slug,
-      retailer: pallet.retailer,
-      conditionGrade: pallet.conditionGrade,
-      unitsCount: pallet.qty,
-    });
-  };
+  const [movingId, setMovingId] = React.useState<string | null>(null);
+  const [isMovingAll, setIsMovingAll] = React.useState(false);
 
-  const handleMoveAllToCart = () => {
-    wishlist.forEach((pallet) => {
-      addToCart({
+  const handleMoveToCart = async (pallet: typeof wishlist[0]) => {
+    try {
+      setMovingId(pallet.id);
+      await addToCart({
         id: pallet.id,
         title: pallet.title,
         price: pallet.price,
@@ -41,9 +32,31 @@ export default function WishlistDrawer({ isOpen, onClose }: WishlistDrawerProps)
         conditionGrade: pallet.conditionGrade,
         unitsCount: pallet.qty,
       });
-    });
-    onClose();
-    openCart();
+    } finally {
+      setMovingId(null);
+    }
+  };
+
+  const handleMoveAllToCart = async () => {
+    try {
+      setIsMovingAll(true);
+      for (const pallet of wishlist) {
+        await addToCart({
+          id: pallet.id,
+          title: pallet.title,
+          price: pallet.price,
+          img: pallet.img,
+          slug: pallet.slug,
+          retailer: pallet.retailer,
+          conditionGrade: pallet.conditionGrade,
+          unitsCount: pallet.qty,
+        });
+      }
+      onClose();
+      openCart();
+    } finally {
+      setIsMovingAll(false);
+    }
   };
 
   return (
@@ -166,9 +179,15 @@ export default function WishlistDrawer({ isOpen, onClose }: WishlistDrawerProps)
                             
                             <button
                               onClick={() => handleMoveToCart(pallet)}
-                              className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                              disabled={movingId === pallet.id || isMovingAll}
+                              className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                             >
-                              <ShoppingCart className="w-3 h-3" /> Move to Cart
+                              {movingId === pallet.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <ShoppingCart className="w-3 h-3" />
+                              )}
+                              Move to Cart
                             </button>
                          </div>
                       </div>
@@ -184,10 +203,16 @@ export default function WishlistDrawer({ isOpen, onClose }: WishlistDrawerProps)
           <div className="border-t border-neutral-100 bg-white p-6 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] space-y-3">
             <button
               onClick={handleMoveAllToCart}
-              className="w-full py-4 bg-neutral-900 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-neutral-900/20 hover:bg-neutral-800 transition-all flex items-center justify-center gap-2 group cursor-pointer"
+              disabled={isMovingAll || Boolean(movingId)}
+              className="w-full py-4 bg-neutral-900 text-white rounded-xl font-bold text-sm tracking-wide shadow-lg shadow-neutral-900/20 hover:bg-neutral-800 disabled:opacity-60 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 group cursor-pointer"
             >
-              <ShoppingCart className="w-4 h-4" /> Move All to Cart
-              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              {isMovingAll ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ShoppingCart className="w-4 h-4" />
+              )}
+              {isMovingAll ? 'Moving to Cart...' : 'Move All to Cart'}
+              {!isMovingAll && <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />}
             </button>
 
             <Link

@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, ShoppingCart } from 'lucide-react';
+import { Heart, ShoppingCart, Loader2 } from 'lucide-react';
 import { useCart, useWishlist } from '@/lib/context/StoreContext';
 import { formatConditionLabel } from '@/lib/condition';
 
@@ -63,6 +63,7 @@ function getSoftConditionBadgeClass(condition: string | null | undefined): strin
 export default function PalletCard({ pallet, isWishlistPage = false }: PalletCardProps) {
   const { addToCart } = useCart();
   const { toggleWishlist, removeFromWishlist, isInWishlist } = useWishlist();
+  const [isAdding, setIsAdding] = useState(false);
 
   const isSaved = isWishlistPage || isInWishlist(pallet.id);
   const conditionDisplay = formatConditionLabel(pallet.conditionGrade || pallet.condition);
@@ -118,20 +119,26 @@ export default function PalletCard({ pallet, isWishlistPage = false }: PalletCar
     }
   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isAdding || pallet.status === 'Sold Out') return;
 
-    addToCart({
-      id: pallet.id,
-      title: pallet.title,
-      price: priceValue,
-      img: pallet.image,
-      slug: pallet.slug || pallet.id,
-      retailer: retailerDisplay,
-      conditionGrade: conditionDisplay,
-      unitsCount,
-    });
+    setIsAdding(true);
+    try {
+      await addToCart({
+        id: pallet.id,
+        title: pallet.title,
+        price: priceValue,
+        img: pallet.image,
+        slug: pallet.slug || pallet.id,
+        retailer: retailerDisplay,
+        conditionGrade: conditionDisplay,
+        unitsCount,
+      });
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -236,10 +243,21 @@ export default function PalletCard({ pallet, isWishlistPage = false }: PalletCar
           {/* Add to Cart Button */}
           <div className='flex justify-center'>
               <button
-                type="button" onClick={handleAddToCart} disabled={pallet.status === 'Sold Out'}
-                className="w-[90%] mb-1 py-2  px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-xs hover:shadow-md cursor-pointer">
-                <ShoppingCart className="w-4 h-4 text-white" />
-                <span>{pallet.status === 'Sold Out' ? 'Sold Out' : 'Add to Cart'}</span>
+                type="button"
+                onClick={handleAddToCart}
+                disabled={pallet.status === 'Sold Out' || isAdding}
+                className="w-[90%] mb-4 py-2 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold text-sm rounded-xl transition-all duration-200 flex items-center justify-center gap-2 shadow-xs hover:shadow-md cursor-pointer">
+                {isAdding ? (
+                  <>
+                    <Loader2 className="w-4 h-4 text-white animate-spin" />
+                    <span>Adding...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingCart className="w-4 h-4 text-white" />
+                    <span>{pallet.status === 'Sold Out' ? 'Sold Out' : 'Add to Cart'}</span>
+                  </>
+                )}
               </button>
           </div>
 

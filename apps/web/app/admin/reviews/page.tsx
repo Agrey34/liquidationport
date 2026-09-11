@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 interface AppReview {
   id: string;
@@ -77,8 +78,7 @@ export default function ReviewsPage() {
       }
     } catch (err: unknown) {
       console.error('Failed to load reviews:', err);
-      const msg = err instanceof Error ? err.message : 'Unable to connect to live reviews API.';
-      setError(msg);
+      setError(getCleanErrorMessage(err, 'Unable to load reviews. Please try again shortly.'));
     } finally {
       setLoading(false);
     }

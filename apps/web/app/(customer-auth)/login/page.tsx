@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { X, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 function CustomerLoginForm() {
   const router = useRouter();
@@ -35,7 +36,7 @@ function CustomerLoginForm() {
       });
 
       if (signInError) {
-        setError(signInError.message);
+        setError(getCleanErrorMessage(signInError, 'Unable to sign in. Please verify your credentials and try again.'));
         setIsLoading(false);
         return;
       }
@@ -54,11 +55,11 @@ function CustomerLoginForm() {
       } else if (next && next.startsWith('/')) {
         window.location.href = next;
       } else {
-        window.location.href = '/account';
+        window.location.href = '/';
       }
     } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in. Please try again.');
+      setError(getCleanErrorMessage(err, 'Unable to sign in. Please try again later.'));
       setIsLoading(false);
     }
   };

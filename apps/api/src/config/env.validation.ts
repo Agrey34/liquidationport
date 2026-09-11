@@ -21,6 +21,11 @@ class EnvironmentVariables {
   @IsNotEmpty()
   SUPABASE_JWT_SECRET: string;
 
+  /** Public JWKS cache for offline ES256 Supabase access-token verification. */
+  @IsOptional()
+  @IsString()
+  SUPABASE_JWKS?: string;
+
   @IsString()
   @IsNotEmpty()
   SUPABASE_DATABASE_URL: string;

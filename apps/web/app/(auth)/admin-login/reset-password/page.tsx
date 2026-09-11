@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { updatePassword } from '../../../auth/actions';
+import { getCleanErrorMessage } from '../../../../lib/error-utils';
 
 export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +18,7 @@ export default function ResetPasswordPage() {
     const result = await updatePassword(formData);
     
     if (result?.error) {
-      setError(result.error);
+      setError(getCleanErrorMessage(result.error, 'Unable to update password. Please try again.'));
       setLoading(false);
     }
   };

@@ -16,6 +16,11 @@ export class UsersController {
     return this.usersService.findProfile(req.user.id);
   }
 
+  @Get('dashboard')
+  getDashboard(@Req() req) {
+    return this.usersService.getDashboardOverview(req.user.id);
+  }
+
   @Patch('me')
   updateProfile(@Req() req, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.updateProfile(req.user.id, updateUserDto);

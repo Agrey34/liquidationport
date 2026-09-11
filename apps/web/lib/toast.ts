@@ -1,3 +1,5 @@
+import { getCleanErrorMessage } from './error-utils';
+
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 export interface ToastItem {
@@ -67,8 +69,11 @@ export const toastManager = new ToastManager();
 export const toast = {
   success: (message: string, options?: { description?: string; duration?: number; id?: string }) =>
     toastManager.show('success', message, options),
-  error: (message: string, options?: { description?: string; duration?: number; id?: string }) =>
-    toastManager.show('error', message, options),
+  error: (message: string, options?: { description?: string; duration?: number; id?: string }) => {
+    const cleanMsg = getCleanErrorMessage(message);
+    const cleanDesc = options?.description ? getCleanErrorMessage(options.description) : undefined;
+    return toastManager.show('error', cleanMsg, options ? { ...options, description: cleanDesc } : undefined);
+  },
   info: (message: string, options?: { description?: string; duration?: number; id?: string }) =>
     toastManager.show('info', message, options),
   warning: (message: string, options?: { description?: string; duration?: number; id?: string }) =>

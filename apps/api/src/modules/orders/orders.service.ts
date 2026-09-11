@@ -139,6 +139,10 @@ export class OrdersService {
           select: {
             id: true,
             email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            companyName: true,
             addresses: true,
           }
         }

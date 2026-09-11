@@ -14,7 +14,7 @@ export async function GET(request: Request) {
       const user = data.user;
       const role = user?.user_metadata?.role || user?.app_metadata?.role;
 
-      const redirectPath = next || (role === 'admin' ? '/admin' : '/account');
+      const redirectPath = next || (role === 'admin' ? '/admin' : '/');
       const forwardedHost = request.headers.get('x-forwarded-host');
       const isLocalEnv = process.env.NODE_ENV === 'development';
 

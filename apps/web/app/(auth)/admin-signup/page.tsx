@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { signup } from '../../auth/actions';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export default function SignupPage() {
     const result = await signup(formData);
     
     if (result?.error) {
-      setError(result.error);
+      setError(getCleanErrorMessage(result.error, 'Unable to create account. Please try again shortly.'));
       setLoading(false);
     }
     // On success, redirect is handled by server action
@@ -49,6 +50,34 @@ export default function SignupPage() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[#151717] font-semibold text-sm">First Name</label>
+                <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center px-3 transition-colors duration-200 focus-within:border-[#2d79f3]">
+                  <input
+                    name="firstName"
+                    required
+                    placeholder="First name"
+                    className="rounded-[10px] border-none w-full h-full focus:outline-none bg-transparent text-sm placeholder:text-neutral-400 text-black"
+                    type="text"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[#151717] font-semibold text-sm">Last Name</label>
+                <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center px-3 transition-colors duration-200 focus-within:border-[#2d79f3]">
+                  <input
+                    name="lastName"
+                    required
+                    placeholder="Last name"
+                    className="rounded-[10px] border-none w-full h-full focus:outline-none bg-transparent text-sm placeholder:text-neutral-400 text-black"
+                    type="text"
+                  />
+                </div>
+              </div>
+            </div>
+
             <div className="flex flex-col gap-1">
               <label className="text-[#151717] font-semibold text-sm">Email</label>
               <div className="border-[1.5px] border-[#ecedec] rounded-[10px] h-[50px] flex items-center pl-3 transition-colors duration-200 focus-within:border-[#2d79f3]">

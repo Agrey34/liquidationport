@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -100,6 +101,7 @@ export default function ProductDetailsPage() {
   const [activeImage, setActiveImage] = useState(0);
   const [activeTab, setActiveTab] = useState('Manifest');
   const [isAddedToCart, setIsAddedToCart] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [showAllDimensions, setShowAllDimensions] = useState(false);
   const [rowsPerPage, setRowsPerPage] = useState(5);
@@ -197,20 +199,26 @@ export default function ProductDetailsPage() {
   const retailer = product.category?.name || 'General Merchandise';
   const unitsCount = product.stock || (product.variants?.reduce((sum, v) => sum + Number(v.stock || 1), 0) ?? 1);
 
-  const handleAddToCart = () => {
-    const primaryImg = images[0] || DEFAULT_PRODUCT_FALLBACK;
-    addToCart({
-      id: product.id,
-      title: product.name,
-      price: rawPrice,
-      img: primaryImg,
-      slug: product.slug,
-      retailer,
-      conditionGrade: product.condition || 'Customer Returns',
-      unitsCount,
-    });
-    setIsAddedToCart(true);
-    setTimeout(() => setIsAddedToCart(false), 2000);
+  const handleAddToCart = async () => {
+    if (isAdding || !product) return;
+    setIsAdding(true);
+    try {
+      const primaryImg = images[0] || DEFAULT_PRODUCT_FALLBACK;
+      await addToCart({
+        id: product.id,
+        title: product.name,
+        price: rawPrice,
+        img: primaryImg,
+        slug: product.slug,
+        retailer,
+        conditionGrade: product.condition || 'Customer Returns',
+        unitsCount,
+      });
+      setIsAddedToCart(true);
+      setTimeout(() => setIsAddedToCart(false), 2000);
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   const handleToggleWishlist = () => {
@@ -441,16 +449,22 @@ export default function ProductDetailsPage() {
                 {/* Add to Cart Button */}
                 <button
                   onClick={handleAddToCart}
-                  disabled={isAddedToCart}
+                  disabled={isAddedToCart || isAdding}
                   className={`flex-1 h-11 px-6 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer border ${
                     isAddedToCart
                       ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                      : isAdding
+                      ? 'bg-neutral-100 border-neutral-300 text-neutral-500 cursor-not-allowed'
                       : 'border-[#18113c] text-[#18113c] bg-white hover:bg-[#18113c]/5 hover:shadow-2xs'
                   }`}
                 >
                   {isAddedToCart ? (
                     <>
                       <ShieldCheck className="w-4 h-4" /> Added to Cart
+                    </>
+                  ) : isAdding ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Adding...
                     </>
                   ) : (
                     <>Add to cart</>

@@ -5,12 +5,17 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { X, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { createClient } from '../../../lib/supabase/client';
+import InternationalPhoneInput from '@/app/components/ui/InternationalPhoneInput';
+import { apiFetch, ApiError } from '@/lib/api';
+import { getCleanErrorMessage, isAccountConflictError } from '@/lib/error-utils';
 
 export default function CustomerRegisterPage() {
   const router = useRouter();
 
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -21,12 +26,18 @@ export default function CustomerRegisterPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [accountConflict, setAccountConflict] = useState<{
+    isConflict: boolean;
+    message: string;
+    conflictField?: string;
+  } | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const supabase = createClient();
 
   const isFormValid =
-    fullName.trim().length > 0 &&
+    firstName.trim().length > 0 &&
+    lastName.trim().length > 0 &&
     email.trim().length > 0 &&
     password.length >= 6 &&
     password === confirmPassword &&
@@ -42,40 +53,81 @@ export default function CustomerRegisterPage() {
       setError('Passwords do not match.');
       return;
     }
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
     if (!isFormValid) return;
 
     try {
       setIsLoading(true);
       setError(null);
+      setAccountConflict(null);
       setSuccessMsg(null);
 
-      const trimmedName = fullName.trim();
-      const nameParts = trimmedName.split(' ');
-      const firstName = nameParts[0] || trimmedName;
-      const lastName = nameParts.slice(1).join(' ') || '';
+      const trimmedFirst = firstName.trim();
+      const trimmedLast = lastName.trim();
+      const combinedFullName = `${trimmedFirst} ${trimmedLast}`.trim();
+      const normalizedEmail = email.trim().toLowerCase();
+      const standardizedPhone = phone.trim() || undefined;
 
+      // STEP 1: Backend Pre-Flight Unique Account Verification (HTTP 409)
+      try {
+        await apiFetch('/auth/check-account', {
+          method: 'POST',
+          body: JSON.stringify({
+            email: normalizedEmail,
+            phone: standardizedPhone,
+          }),
+        });
+      } catch (checkErr: any) {
+        // Intercept HTTP 409 Conflict status or structured duplicate error
+        if (
+          checkErr?.status === 409 ||
+          checkErr?.data?.status === 'error' ||
+          checkErr?.message?.toLowerCase().includes('already associated') ||
+          checkErr?.message?.toLowerCase().includes('already registered')
+        ) {
+          setAccountConflict({
+            isConflict: true,
+            message: checkErr?.data?.message || 'This email or phone number is already associated with an account.',
+            conflictField: checkErr?.data?.conflictField,
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // STEP 2: Supabase Auth Creation
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
         options: {
           data: {
-            full_name: trimmedName,
-            first_name: firstName,
-            last_name: lastName,
-            phone: phone.trim() || undefined,
+            first_name: trimmedFirst,
+            last_name: trimmedLast,
+            full_name: combinedFullName,
+            phone: standardizedPhone,
             role: 'customer',
           },
         },
       });
 
       if (signUpError) {
-        setError(signUpError.message);
+        if (isAccountConflictError(signUpError)) {
+          setAccountConflict({
+            isConflict: true,
+            message: 'This email or phone number is already associated with an account.',
+          });
+        } else {
+          setError(getCleanErrorMessage(signUpError, 'Unable to create account. Please try again shortly.'));
+        }
         setIsLoading(false);
         return;
       }
 
       if (data.session) {
-        window.location.href = '/account';
+        window.location.href = '/';
       } else {
         setSuccessMsg('Account created successfully! Please check your email to verify.');
         setIsLoading(false);
@@ -85,7 +137,14 @@ export default function CustomerRegisterPage() {
       }
     } catch (err: unknown) {
       console.error('Registration error:', err);
-      setError(err instanceof Error ? err.message : 'Registration failed. Please try again.');
+      if (isAccountConflictError(err)) {
+        setAccountConflict({
+          isConflict: true,
+          message: (err instanceof ApiError && err.data?.message) || 'This email or phone number is already associated with an account.',
+        });
+      } else {
+        setError(getCleanErrorMessage(err, 'Registration failed. Please try again.'));
+      }
       setIsLoading(false);
     }
   };
@@ -123,6 +182,35 @@ export default function CustomerRegisterPage() {
           Sign up
         </h1>
 
+        {/* Targeted Account Conflict Warning Banner */}
+        {accountConflict?.isConflict && (
+          <div className="mb-4 p-4 bg-amber-50/90 border border-amber-300 rounded-2xl text-amber-950 text-xs shadow-xs animate-in fade-in duration-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-2 flex-1">
+                <p className="font-bold leading-snug">
+                  {accountConflict.message}
+                </p>
+                <div className="flex items-center gap-3 pt-0.5 text-[11px]">
+                  <Link
+                    href="/login"
+                    className="font-bold text-blue-700 hover:text-blue-900 underline underline-offset-2 flex items-center gap-1 cursor-pointer"
+                  >
+                    Log In instead &rarr;
+                  </Link>
+                  <span className="text-amber-300">•</span>
+                  <Link
+                    href="/forgot-password"
+                    className="font-bold text-neutral-700 hover:text-neutral-950 underline underline-offset-2 cursor-pointer"
+                  >
+                    Reset Password
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2.5 text-rose-700 text-xs">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -138,26 +226,44 @@ export default function CustomerRegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {/* Full Name */}
-          <div>
-            <input
-              type="text"
-              placeholder="Full name"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-4 py-3.5 bg-white border border-neutral-300 focus:border-neutral-900 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none transition-all"
-            />
+          {/* First Name & Last Name */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <input
+                type="text"
+                placeholder="First name"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full px-4 py-3.5 bg-white border border-neutral-300 focus:border-neutral-900 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none transition-all"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="Last name"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full px-4 py-3.5 bg-white border border-neutral-300 focus:border-neutral-900 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none transition-all"
+              />
+            </div>
           </div>
 
-          {/* Phone Number */}
+          {/* Phone Number (International E.164) */}
           <div>
-            <input
-              type="tel"
-              placeholder="Phone number"
+            <InternationalPhoneInput
+              id="register-phone"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="w-full px-4 py-3.5 bg-white border border-neutral-300 focus:border-neutral-900 rounded-xl text-sm text-neutral-900 placeholder:text-neutral-500 focus:outline-none transition-all"
+              onChange={(e164, result) => {
+                setPhone(e164);
+                if (result.digits && !result.isValid) {
+                  setPhoneError(result.error || 'Please enter a valid phone number.');
+                } else {
+                  setPhoneError(null);
+                }
+              }}
+              error={phoneError}
             />
           </div>
 

@@ -7,6 +7,7 @@ import { RowMenu } from './_components/RowMenu';
 import { OrderDrawer } from './_components/OrderDrawer';
 import { InvoiceOverlay } from './_components/InvoiceOverlay';
 import { apiFetch } from '../../../lib/api';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 
 const PAGE_SIZE = 10;
 
@@ -84,8 +85,7 @@ export default function OrdersPage() {
         return;
       }
       console.error('Failed to load orders:', err);
-      const msg = err instanceof Error ? err.message : 'Unable to connect to live orders API.';
-      setError(msg);
+      setError(getCleanErrorMessage(err, 'Unable to load orders. Please try again shortly.'));
     } finally {
       if (!signal?.aborted) {
         setLoading(false);

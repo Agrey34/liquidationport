@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
 import { formatConditionLabel } from '@/lib/condition';
 import { toast } from '@/lib/toast';
+import { getCleanErrorMessage } from '@/lib/error-utils';
 
 // ─── Badge Configs ────────────────────────────────────────────────────────────
 
@@ -167,8 +168,7 @@ export function ProductDrawer({
           return;
         }
         console.error('[ProductDrawer] Failed to fetch details:', err);
-        const errMsg = err instanceof Error ? err.message : 'Product details could not be loaded.';
-        setError(errMsg);
+        setError(getCleanErrorMessage(err, 'Product details could not be loaded. Please try again shortly.'));
       } finally {
         if (activeRequestIdRef.current === currentId) {
           setLoading(false);

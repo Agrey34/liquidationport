@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../../../lib/api';
+import { getCleanErrorMessage } from '../../../lib/error-utils';
 import Link from 'next/link';
 
 interface OrderItem {
@@ -84,7 +85,7 @@ export default function ReturnsPage() {
         return;
       }
       console.error('Failed to load returns/refunds:', err);
-      setError(err instanceof Error ? err.message : 'Unable to connect to live returns API.');
+      setError(getCleanErrorMessage(err, 'Unable to load returns. Please try again shortly.'));
     } finally {
       if (!signal?.aborted) {
         setLoading(false);

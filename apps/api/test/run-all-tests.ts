@@ -6,10 +6,13 @@ import { AdminsService } from '../src/modules/admins/admins.service';
 import { ReviewsService } from '../src/modules/reviews/reviews.service';
 import { CouponsService } from '../src/modules/coupons/coupons.service';
 import { UsersService } from '../src/modules/users/users.service';
+import { CartsService } from '../src/modules/carts/carts.service';
 import { CouponType } from '../src/modules/coupons/dto/coupon.dto';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../src/database/prisma.service';
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { RolesGuard } from '../src/common/guards/roles.guard';
+import { Reflector } from '@nestjs/core';
+import { ExecutionContext, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import * as assert from 'assert';
 
@@ -112,16 +115,8 @@ async function runTests() {
   const testSecret = process.env.SUPABASE_JWT_SECRET || 'mock-jwt-secret-for-unit-testing-32-chars-long-min!';
   const testUrl = 'https://dwcqddafnxerhoredcmw.supabase.co';
 
-  const mockConfig: Partial<ConfigService> = {
-    getOrThrow: ((key: string) => {
-      if (key === 'SUPABASE_URL') return testUrl;
-      if (key === 'SUPABASE_JWT_SECRET') return testSecret;
-      if (key === 'SUPABASE_SERVICE_ROLE_KEY') return 'mock-key';
-      throw new Error(`Missing ${key}`);
-    }) as any,
-  };
-
-  const guard = new SupabaseAuthGuard(mockConfig as ConfigService);
+  process.env.SUPABASE_JWT_SECRET = testSecret;
+  const guard = new SupabaseAuthGuard();
 
   const mockCtx = (header?: string): ExecutionContext => {
     const req: any = { headers: { authorization: header } };
@@ -221,6 +216,7 @@ async function runTests() {
     }) as any,
     product: {
       findMany: (async () => {
+        dbQueries++;
         return [
           { id: '1', name: 'Pallet 1', slug: 'pallet-1', price: 100, stock: 5, category: null, variants: [], media: [] }
         ];
@@ -237,7 +233,9 @@ async function runTests() {
   };
 
   const prodCache = new MemoryCacheService({ maxEntries: 100, defaultTtlSeconds: 300 });
-  const prodService = new ProductsService(mockPrisma as PrismaService, prodCache);
+  const mockConfig = { get: () => 'http://localhost:4000/api/v1/shop/media' } as any;
+  const mockStorage = { uploadPublicProductImage: async () => ({ url: 'mock-url' }) } as any;
+  const prodService = new ProductsService(mockPrisma as PrismaService, mockConfig, prodCache, mockStorage);
 
   await test('Enforce Server-Side Pagination Limit Clamp (max 100)', async () => {
     const result = await prodService.findAll({ page: 1, limit: 10000 });
@@ -399,11 +397,86 @@ async function runTests() {
     auditLog: {
       findMany: async () => [],
     },
+    admin: {
+      findUnique: async (args: any) => {
+        if (args?.where?.id === 'admin-1') return { id: 'admin-1', role: 'admin' };
+        if (args?.where?.id === 'superadmin-1') return { id: 'superadmin-1', role: 'super_admin' };
+        return null;
+      },
+    },
+    cart: {
+      findUnique: async (args: any) => {
+        if (args?.where?.userId === mockCart.userId || args?.where?.id === mockCart.id) return mockCart;
+        return null;
+      },
+      upsert: async (args: any) => {
+        return mockCart;
+      },
+      create: async (args: any) => {
+        return mockCart;
+      },
+    },
+    cartItem: {
+      findUnique: async (args: any) => {
+        if (args?.where?.cartId_variantId) {
+          return mockCart.items.find((i: any) => i.cartId === args.where.cartId_variantId.cartId && i.variantId === args.where.cartId_variantId.variantId) || null;
+        }
+        if (args?.where?.id) {
+          const item = mockCart.items.find((i: any) => i.id === args.where.id);
+          if (!item) return null;
+          const variant = mockVariants.find((v: any) => v.id === item.variantId);
+          return { ...item, variant };
+        }
+        return null;
+      },
+      upsert: async (args: any) => {
+        const idx = mockCart.items.findIndex((i: any) => i.cartId === args.where.cartId_variantId.cartId && i.variantId === args.where.cartId_variantId.variantId);
+        const variant = mockVariants.find((v: any) => v.id === args.where.cartId_variantId.variantId);
+        if (idx >= 0) {
+          mockCart.items[idx].quantity += args.update.quantity.increment;
+          return mockCart.items[idx];
+        } else {
+          const newItem = { id: 'ci-' + (mockCart.items.length + 1), cartId: args.create.cartId, variantId: args.create.variantId, quantity: args.create.quantity, variant };
+          mockCart.items.push(newItem);
+          return newItem;
+        }
+      },
+      update: async (args: any) => {
+        const item = mockCart.items.find((i: any) => i.id === args.where.id);
+        if (item) item.quantity = args.data.quantity;
+        return item;
+      },
+      deleteMany: async (args: any) => {
+        const before = mockCart.items.length;
+        mockCart.items = mockCart.items.filter((i: any) => !(i.id === args.where.id && i.cartId === args.where.cartId));
+        return { count: before - mockCart.items.length };
+      },
+    },
+    productVariant: {
+      findFirst: async (args: any) => {
+        if (args?.where?.OR) {
+          const v = mockVariants.find((mv: any) => args.where.OR.some((cond: any) => cond.id === mv.id || cond.productId === mv.productId));
+          return v ? { id: v.id, stock: v.stock } : null;
+        }
+        return null;
+      },
+    },
   };
+
+  let mockCart: any = {
+    id: 'cart-1',
+    userId: 'u-1',
+    items: [],
+  };
+  const mockVariants: any[] = [
+    { id: 'var-1', productId: 'prod-1', stock: 10, price: '150.00', product: { name: 'Item 1', slug: 'item-1', media: [{ url: '/img1.jpg' }] } },
+    { id: 'var-2', productId: 'prod-2', stock: 2, price: '200.00', product: { name: 'Item 2', slug: 'item-2', media: [{ url: '/img2.jpg' }] } },
+  ];
 
   const reviewsService = new ReviewsService(mockAppPrisma);
   const couponsService = new CouponsService(mockAppPrisma);
   const usersService = new UsersService(mockAppPrisma, { get: () => '' } as any);
+  const cartsService = new CartsService(mockAppPrisma);
 
   await test('ReviewsService.getAdminReviews returns list with live KPIs', async () => {
     const res = await reviewsService.getAdminReviews({ page: 1, limit: 10 });
@@ -440,6 +513,132 @@ async function runTests() {
   await test('UsersService.changeRole updates user role in database', async () => {
     const updated = await usersService.changeRole('u-1', 'admin');
     assert.strictEqual(updated.role, 'admin');
+  });
+
+  console.log('--- 6. CartsService Fast Mutations & Instant Return Tests ---');
+
+  await test('CartsService.addItem with variant ID adds item and returns fresh cart', async () => {
+    const cart = await cartsService.addItem('u-1', { variantId: 'var-1', quantity: 2 });
+    assert.strictEqual(cart.id, 'cart-1');
+    assert.strictEqual(cart.items.length, 1);
+    assert.strictEqual(cart.items[0].variantId, 'var-1');
+    assert.strictEqual(cart.items[0].quantity, 2);
+  });
+
+  await test('CartsService.addItem with product ID fallback resolves variant in single query', async () => {
+    // When passing productId 'prod-2', it should find var-2 via the OR clause
+    const cart = await cartsService.addItem('u-1', { variantId: 'prod-2', quantity: 1 });
+    assert.strictEqual(cart.items.length, 2);
+    const added = cart.items.find((i: any) => i.variantId === 'var-2');
+    assert.ok(added);
+    assert.strictEqual(added.quantity, 1);
+  });
+
+  await test('CartsService.addItem increments quantity when item already in cart', async () => {
+    const cart = await cartsService.addItem('u-1', { variantId: 'var-1', quantity: 3 });
+    const item = cart.items.find((i: any) => i.variantId === 'var-1');
+    assert.strictEqual(item.quantity, 5); // 2 + 3
+  });
+
+  await test('CartsService.addItem rejects when exceeding available stock', async () => {
+    let error: any = null;
+    try {
+      // var-2 only has 2 in stock, 1 already in cart, asking for 2 more should fail
+      await cartsService.addItem('u-1', { variantId: 'var-2', quantity: 2 });
+    } catch (err) {
+      error = err;
+    }
+    assert.ok(error);
+    assert.strictEqual(error.message, 'Not enough stock available');
+  });
+
+  await test('CartsService.updateItem updates quantity and returns fresh cart', async () => {
+    const item = mockCart.items.find((i: any) => i.variantId === 'var-1');
+    const cart = await cartsService.updateItem('u-1', item.id, { quantity: 4 });
+    const updated = cart.items.find((i: any) => i.variantId === 'var-1');
+    assert.strictEqual(updated.quantity, 4);
+  });
+
+  await test('CartsService.removeItem deletes item from cart and returns fresh cart', async () => {
+    const itemToRemove = mockCart.items.find((i: any) => i.variantId === 'var-2');
+    const cart = await cartsService.removeItem('u-1', itemToRemove.id);
+    assert.strictEqual(cart.items.length, 1);
+    assert.strictEqual(cart.items.find((i: any) => i.variantId === 'var-2'), undefined);
+  });
+
+  console.log('--- 7. RolesGuard & Role-Based Access Control Tests ---');
+
+  const createMockContext = (user: any, requiredRoles: string[]): { context: ExecutionContext; reflector: Reflector } => {
+    const mockRequest = { user };
+    const mockContext: any = {
+      switchToHttp: () => ({
+        getRequest: () => mockRequest,
+      }),
+      getHandler: () => ({}),
+      getClass: () => ({}),
+    };
+    const mockReflector: any = {
+      getAllAndOverride: (key: string) => requiredRoles,
+    };
+    return { context: mockContext, reflector: mockReflector };
+  };
+
+  await test('RolesGuard allows user with exact matching JWT app_metadata.role', async () => {
+    const { context, reflector } = createMockContext(
+      { id: 'user-1', app_metadata: { role: 'admin' } },
+      ['admin']
+    );
+    const guard = new RolesGuard(reflector, mockAppPrisma);
+    const allowed = await guard.canActivate(context);
+    assert.strictEqual(allowed, true);
+  });
+
+  await test('RolesGuard allows super_admin on route requiring admin (role hierarchy)', async () => {
+    const { context, reflector } = createMockContext(
+      { id: 'user-1', app_metadata: { role: 'super_admin' } },
+      ['admin']
+    );
+    const guard = new RolesGuard(reflector, mockAppPrisma);
+    const allowed = await guard.canActivate(context);
+    assert.strictEqual(allowed, true);
+  });
+
+  await test('RolesGuard falls back to database admins table when JWT role is customer or stale', async () => {
+    // User has customer role in token, but exists in admins table with admin role
+    const { context, reflector } = createMockContext(
+      { id: 'admin-1', app_metadata: { role: 'customer' } },
+      ['admin']
+    );
+    const guard = new RolesGuard(reflector, mockAppPrisma);
+    const allowed = await guard.canActivate(context);
+    assert.strictEqual(allowed, true);
+  });
+
+  await test('RolesGuard falls back to database admins table for super_admin on admin route', async () => {
+    // User has missing role in token, but exists in admins table with super_admin role
+    const { context, reflector } = createMockContext(
+      { id: 'superadmin-1', role: 'authenticated' },
+      ['admin']
+    );
+    const guard = new RolesGuard(reflector, mockAppPrisma);
+    const allowed = await guard.canActivate(context);
+    assert.strictEqual(allowed, true);
+  });
+
+  await test('RolesGuard rejects user with ForbiddenException when neither token nor database has required role', async () => {
+    const { context, reflector } = createMockContext(
+      { id: 'regular-user', app_metadata: { role: 'customer' } },
+      ['admin']
+    );
+    const guard = new RolesGuard(reflector, mockAppPrisma);
+    let thrownError: any = null;
+    try {
+      await guard.canActivate(context);
+    } catch (err) {
+      thrownError = err;
+    }
+    assert.ok(thrownError instanceof ForbiddenException);
+    assert.strictEqual(thrownError.message, 'You do not have permission to perform this action');
   });
 
   console.log('\n======================================================');
