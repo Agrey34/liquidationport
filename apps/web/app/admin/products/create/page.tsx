@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { getMediaUrl } from '@/lib/image-url';
+import { compressImageForUpload } from '@/lib/image-compress';
 import { STANDARD_CONDITIONS, DEFAULT_CONDITION, formatConditionLabel } from '@/lib/condition';
 import { toast } from '@/lib/toast';
 import {
@@ -233,7 +234,7 @@ function Field({
   hint,
   id,
 }: {
-  label: string;
+  label: React.ReactNode;
   required?: boolean;
   children: React.ReactNode;
   hint?: string;
@@ -305,6 +306,7 @@ export default function CreateProductPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
 
   // ── Reactive Manifest Financials & Totals ──
@@ -649,6 +651,7 @@ export default function CreateProductPage() {
   // ── Form Submission ──
   const handleSubmit = async (e: React.FormEvent, saveStatus: string) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
     if (!name.trim()) {
       toast.warning('Please enter a Pallet / Lot title.');
       return;
@@ -658,6 +661,7 @@ export default function CreateProductPage() {
       return;
     }
 
+    isSubmittingRef.current = true;
     setSubmitting(true);
 
     try {
@@ -668,7 +672,10 @@ export default function CreateProductPage() {
       let uploadedUrls: string[] = [];
       if (pendingFiles.length > 0) {
         const formData = new FormData();
-        pendingFiles.forEach((file) => formData.append('files', file));
+        const compressedFiles = await Promise.all(
+          pendingFiles.map((f) => compressImageForUpload(f)),
+        );
+        compressedFiles.forEach((file) => formData.append('files', file));
         const uploadRes = await apiFetch<{ urls: string[] }>('/products/upload', {
           method: 'POST',
           body: formData,
@@ -750,6 +757,7 @@ export default function CreateProductPage() {
     } catch (err: unknown) {
       toast.error(`Error saving pallet: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
+      isSubmittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -1407,7 +1415,27 @@ export default function CreateProductPage() {
             icon={Package}
           >
             <div className="space-y-4">
-              <Field label="Pallet / Lot Inventory SKU" id="pallet-sku" hint="Unique internal identification code for racking.">
+              <Field
+                label={
+                  <div className="flex items-center justify-between w-full">
+                    <span>Pallet / Lot Inventory SKU</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prefix = (category || 'LOT').slice(0, 3).toUpperCase();
+                        const r1 = Math.floor(100 + Math.random() * 900);
+                        const r2 = Math.floor(100 + Math.random() * 900);
+                        setSku(`${prefix}-${r1}-${r2}`);
+                      }}
+                      className="text-[11px] font-bold text-neutral-600 hover:text-neutral-900 bg-neutral-100 hover:bg-neutral-200 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                    >
+                      Generate New SKU
+                    </button>
+                  </div>
+                }
+                id="pallet-sku"
+                hint="Unique internal identification code for racking."
+              >
                 <input
                   id="pallet-sku"
                   type="text"

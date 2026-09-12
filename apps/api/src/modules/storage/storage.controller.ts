@@ -24,6 +24,16 @@ import { UploadProductImageDto } from './dto/upload-product-image.dto';
 import { UploadOrderInvoiceDto } from './dto/upload-order-invoice.dto';
 import { IsOptional, IsString, IsIn } from 'class-validator';
 
+/** Fallback SVG returned when a media object is missing from Cloudflare R2 or queried via blob URI */
+const FALLBACK_MEDIA_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" fill="none">
+  <rect width="800" height="600" fill="#F8FAFC"/>
+  <rect x="260" y="170" width="280" height="200" rx="16" fill="#F1F5F9" stroke="#E2E8F0" stroke-width="2"/>
+  <circle cx="330" cy="230" r="24" fill="#CBD5E1"/>
+  <path d="M280 340L360 265L430 325L475 285L520 340H280Z" fill="#94A3B8"/>
+  <text x="400" y="425" text-anchor="middle" fill="#475569" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="600">Product Image Unavailable</text>
+  <text x="400" y="452" text-anchor="middle" fill="#94A3B8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13">Liquidation Port</text>
+</svg>`;
+
 /** DTO for type-routed public upload */
 class UploadPublicAssetDto {
   @IsIn(['product', 'category', 'marketing'])
@@ -283,6 +293,7 @@ export class StorageController {
   // ────────────────────────────────────────────────────────────────────────────
   // GET /shop/media/:folder/:file
   // Streams any public product image from Cloudflare R2 with proper cache headers.
+  // Gracefully falls back to a clean SVG placeholder if missing in R2.
   // ────────────────────────────────────────────────────────────────────────────
   @Get('media/:folder/:file')
   async streamMediaFile(
@@ -290,6 +301,14 @@ export class StorageController {
     @Param('file') file: string,
     @Res() res: Response,
   ) {
+    // If a client or legacy code attempts to query a blob URL through this proxy, return placeholder immediately
+    if (folder.startsWith('blob:') || file.startsWith('blob:') || `${folder}/${file}`.includes('blob:')) {
+      res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(200).send(FALLBACK_MEDIA_SVG);
+    }
+
     const key = `${folder}/${file}`;
     try {
       const obj = await this.storageService.getR2Object(key);
@@ -312,8 +331,14 @@ export class StorageController {
         const stream = Readable.fromWeb(obj.body as any);
         return stream.pipe(res);
       }
-    } catch (err: any) {
-      throw new NotFoundException(`Media file '${key}' not found in Cloudflare R2: ${err.message}`);
+    } catch {
+      // Rather than returning a JSON 404 (which breaks Next.js Image optimization),
+      // serve a clean, professional SVG placeholder with valid image headers
+      res.setHeader('Content-Type', 'image/svg+xml; charset=utf-8');
+      res.setHeader('Cache-Control', 'public, max-age=60');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      return res.status(200).send(FALLBACK_MEDIA_SVG);
     }
   }
 

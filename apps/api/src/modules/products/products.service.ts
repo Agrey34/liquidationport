@@ -1,4 +1,4 @@
-import { Injectable, Inject, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
 import { StorageService } from '../storage/storage.service';
@@ -322,138 +322,205 @@ export class ProductsService {
       slug = `${slug}-${Date.now().toString(36)}`;
     }
 
-    const product = await this.prisma.$transaction(async (tx) => {
-      // 1. Resolve Category
-      let resolvedCategoryId: string | null = categoryId || null;
-      if (!resolvedCategoryId && category && category.trim()) {
-        const catSlug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        let cat = await tx.category.findFirst({
-          where: {
-            OR: [
-              { name: { equals: category.trim(), mode: 'insensitive' } },
-              { slug: catSlug },
-            ],
-          },
-        });
-        if (!cat) {
-          cat = await tx.category.create({
-            data: {
-              name: category.trim(),
-              slug: catSlug || `category-${Date.now()}`,
+    // 1. Validate custom SKU uniqueness upfront to prevent unhandled database aborts
+    if (sku && sku.trim()) {
+      const existingSku = await this.prisma.productVariant.findUnique({
+        where: { sku: sku.trim() },
+        include: { product: true },
+      });
+      if (existingSku) {
+        // If the product owning this SKU was soft-deleted, release the SKU from the deleted product
+        if (existingSku.product && existingSku.product.deletedAt !== null) {
+          await this.prisma.productVariant.update({
+            where: { id: existingSku.id },
+            data: { sku: `${existingSku.sku}_DELETED_${Date.now()}` },
+          });
+        } else {
+          const ownerName = existingSku.product?.name ? `"${existingSku.product.name}"` : 'another product';
+          throw new ConflictException(
+            `SKU "${sku.trim()}" is already assigned to active product ${ownerName}. Please specify a unique SKU.`,
+          );
+        }
+      }
+    }
+
+    if (variants && variants.length > 0) {
+      for (const v of variants) {
+        if (v.sku && v.sku.trim()) {
+          const existingVarSku = await this.prisma.productVariant.findUnique({
+            where: { sku: v.sku.trim() },
+            include: { product: true },
+          });
+          if (existingVarSku) {
+            if (existingVarSku.product && existingVarSku.product.deletedAt !== null) {
+              await this.prisma.productVariant.update({
+                where: { id: existingVarSku.id },
+                data: { sku: `${existingVarSku.sku}_DELETED_${Date.now()}` },
+              });
+            } else {
+              const ownerName = existingVarSku.product?.name ? `"${existingVarSku.product.name}"` : 'another product';
+              throw new ConflictException(
+                `Variant SKU "${v.sku.trim()}" is already assigned to active product ${ownerName}. Please specify a unique SKU.`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    try {
+      const product = await this.prisma.$transaction(async (tx) => {
+        // 1. Resolve Category
+        let resolvedCategoryId: string | null = categoryId || null;
+        if (!resolvedCategoryId && category && category.trim()) {
+          const catSlug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          let cat = await tx.category.findFirst({
+            where: {
+              OR: [
+                { name: { equals: category.trim(), mode: 'insensitive' } },
+                { slug: catSlug },
+              ],
             },
           });
+          if (!cat) {
+            cat = await tx.category.create({
+              data: {
+                name: category.trim(),
+                slug: catSlug || `category-${Date.now()}`,
+              },
+            });
+          }
+          resolvedCategoryId = cat.id;
         }
-        resolvedCategoryId = cat.id;
-      }
 
-      // 2. Create Product
-      const newProduct = await tx.product.create({
-        data: {
-          name: rest.name,
-          slug,
-          description: rest.description || null,
-          price: Number(rest.price) || 0,
-          stock: Number(rest.stock) || 0,
-          condition: condition || 'Untested Customer Returns',
-          status: status || 'Active',
-          comparePrice: comparePrice !== undefined && comparePrice !== null ? Number(comparePrice) : null,
-          costPrice: costPrice !== undefined && costPrice !== null ? Number(costPrice) : null,
-          sku: sku || null,
-          weight: weight !== undefined && weight !== null ? Number(weight) : null,
-          manufacturer: manufacturer || null,
-          dimensionL: dimensionL !== undefined && dimensionL !== null ? Number(dimensionL) : null,
-          dimensionW: dimensionW !== undefined && dimensionW !== null ? Number(dimensionW) : null,
-          dimensionH: dimensionH !== undefined && dimensionH !== null ? Number(dimensionH) : null,
-          liquidatorName: liquidatorName || null,
-          liquidatorLogo: liquidatorLogo || null,
-          manifest: manifest ? (manifest as unknown as Prisma.InputJsonValue) : undefined,
-          categoryId: resolvedCategoryId,
-          ...(images && images.length > 0
-            ? {
-                media: {
-                  create: images.map((url, index) => ({
-                    url,
-                    position: index,
-                  })),
-                },
-              }
-            : {}),
-        },
-      });
+        // 2. Create Product
+        const newProduct = await tx.product.create({
+          data: {
+            name: rest.name,
+            slug,
+            description: rest.description || null,
+            price: Number(rest.price) || 0,
+            stock: Number(rest.stock) || 0,
+            condition: condition || 'Untested Customer Returns',
+            status: status || 'Active',
+            comparePrice: comparePrice !== undefined && comparePrice !== null ? Number(comparePrice) : null,
+            costPrice: costPrice !== undefined && costPrice !== null ? Number(costPrice) : null,
+            sku: sku || null,
+            weight: weight !== undefined && weight !== null ? Number(weight) : null,
+            manufacturer: manufacturer || null,
+            dimensionL: dimensionL !== undefined && dimensionL !== null ? Number(dimensionL) : null,
+            dimensionW: dimensionW !== undefined && dimensionW !== null ? Number(dimensionW) : null,
+            dimensionH: dimensionH !== undefined && dimensionH !== null ? Number(dimensionH) : null,
+            liquidatorName: liquidatorName || null,
+            liquidatorLogo: liquidatorLogo || null,
+            manifest: manifest ? (manifest as unknown as Prisma.InputJsonValue) : undefined,
+            categoryId: resolvedCategoryId,
+            ...(images && images.length > 0
+              ? {
+                  media: {
+                    create: images.map((url, index) => ({
+                      url,
+                      position: index,
+                    })),
+                  },
+                }
+              : {}),
+          },
+        });
 
-      // 3. Create Variants
-      if (variants && variants.length > 0) {
-        for (let i = 0; i < variants.length; i++) {
-          const v = variants[i];
-          const variantSku = v.sku?.trim() || `${slug}-VAR-${i + 1}-${Math.random().toString(36).substring(2, 6)}`;
+        // 3. Create Variants
+        if (variants && variants.length > 0) {
+          for (let i = 0; i < variants.length; i++) {
+            const v = variants[i];
+            const variantEntropy = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`.toUpperCase();
+            const variantSku = v.sku?.trim() || `${slug.toUpperCase()}-VAR-${i + 1}-${variantEntropy}`;
+            await tx.productVariant.create({
+              data: {
+                productId: newProduct.id,
+                sku: variantSku,
+                name: v.name || `${newProduct.name} - Variant ${i + 1}`,
+                price: v.price !== undefined && v.price !== null ? Number(v.price) : Number(rest.price) || 0,
+                stock: v.stock !== undefined && v.stock !== null ? Number(v.stock) : 1,
+                condition: v.condition || condition || null,
+                upc: v.upc || null,
+                msrp: v.msrp !== undefined && v.msrp !== null ? Number(v.msrp) : null,
+                manufacturer: v.manufacturer || null,
+              },
+            });
+          }
+        } else {
+          // Create default variant for single pallet / listing with collision-proof SKU
+          const uniqueEntropy = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`.toUpperCase();
+          const defaultSku = sku?.trim() || `${slug.toUpperCase()}-PLT-${uniqueEntropy}`;
+
           await tx.productVariant.create({
             data: {
               productId: newProduct.id,
-              sku: variantSku,
-              name: v.name || `${newProduct.name} - Variant ${i + 1}`,
-              price: v.price !== undefined && v.price !== null ? Number(v.price) : Number(rest.price) || 0,
-              stock: v.stock !== undefined && v.stock !== null ? Number(v.stock) : 1,
-              condition: v.condition || condition || null,
-              upc: v.upc || null,
-              msrp: v.msrp !== undefined && v.msrp !== null ? Number(v.msrp) : null,
-              manufacturer: v.manufacturer || null,
+              sku: defaultSku,
+              name: newProduct.name,
+              price: Number(rest.price) || 0,
+              stock: Number(rest.stock) || 1,
+              condition: condition || 'Untested Customer Returns',
+              msrp: comparePrice !== undefined && comparePrice !== null ? Number(comparePrice) : null,
             },
           });
         }
-      } else {
-        // Create default variant for single pallet / listing
-        await tx.productVariant.create({
-          data: {
-            productId: newProduct.id,
-            sku: sku || `${slug}-PALLET-1`,
-            name: newProduct.name,
-            price: Number(rest.price) || 0,
-            stock: Number(rest.stock) || 1,
-            condition: condition || 'Untested Customer Returns',
-            msrp: comparePrice !== undefined && comparePrice !== null ? Number(comparePrice) : null,
-          },
-        });
-      }
 
-      // 4. Create Tags
-      if (tags && tags.length > 0) {
-        for (const tagName of tags) {
-          if (!tagName || !tagName.trim()) continue;
-          const cleanName = tagName.trim();
-          let tag = await tx.tag.findUnique({
-            where: { name: cleanName },
-          });
-          if (!tag) {
-            tag = await tx.tag.create({
-              data: { name: cleanName },
+        // 4. Create Tags
+        if (tags && tags.length > 0) {
+          for (const tagName of tags) {
+            if (!tagName || !tagName.trim()) continue;
+            const cleanName = tagName.trim();
+            let tag = await tx.tag.findUnique({
+              where: { name: cleanName },
+            });
+            if (!tag) {
+              tag = await tx.tag.create({
+                data: { name: cleanName },
+              });
+            }
+            await tx.productTag.create({
+              data: {
+                productId: newProduct.id,
+                tagId: tag.id,
+              },
             });
           }
-          await tx.productTag.create({
-            data: {
-              productId: newProduct.id,
-              tagId: tag.id,
-            },
-          });
+        }
+
+        return tx.product.findUnique({
+          where: { id: newProduct.id },
+          include: {
+            media: { orderBy: { position: 'asc' } },
+            category: true,
+            variants: true,
+            tags: { include: { tag: true } },
+          },
+        });
+      }, {
+        maxWait: 15000,
+        timeout: 20000,
+      });
+
+      // Invalidate product caches
+      await this.clearProductCache();
+      return product;
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = (err.meta?.target as string[]) || [];
+        if (target.includes('sku') || String(err.meta?.target).includes('sku')) {
+          throw new ConflictException(
+            'A product variant with this SKU already exists. Please specify a unique SKU.',
+          );
+        }
+        if (target.includes('slug') || String(err.meta?.target).includes('slug')) {
+          throw new ConflictException(
+            'A product with this URL slug already exists. Please adjust the title.',
+          );
         }
       }
-
-      return tx.product.findUnique({
-        where: { id: newProduct.id },
-        include: {
-          media: { orderBy: { position: 'asc' } },
-          category: true,
-          variants: true,
-          tags: { include: { tag: true } },
-        },
-      });
-    }, {
-      maxWait: 15000,
-      timeout: 20000,
-    });
-
-    // Invalidate product caches
-    await this.clearProductCache();
-    return product;
+      throw err;
+    }
   }
 
   async update(id: string, updateProductDto: UpdateProductDto) {
@@ -479,153 +546,221 @@ export class ProductsService {
       ...rest
     } = updateProductDto;
 
-    const product = await this.prisma.$transaction(async (tx) => {
-      // 1. Resolve Category
-      let resolvedCategoryId: string | null | undefined = categoryId;
-      if (categoryId === undefined && category && category.trim()) {
-        const catSlug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
-        let cat = await tx.category.findFirst({
-          where: {
-            OR: [
-              { name: { equals: category.trim(), mode: 'insensitive' } },
-              { slug: catSlug },
-            ],
-          },
-        });
-        if (!cat) {
-          cat = await tx.category.create({
-            data: {
-              name: category.trim(),
-              slug: catSlug || `category-${Date.now()}`,
+    // Validate custom SKU uniqueness upfront if specified
+    if (sku && sku.trim()) {
+      const existingSku = await this.prisma.productVariant.findFirst({
+        where: {
+          sku: sku.trim(),
+          productId: { not: id },
+        },
+      });
+      if (existingSku) {
+        throw new ConflictException(
+          `SKU "${sku.trim()}" is already assigned to another product variant. Please specify a unique SKU.`,
+        );
+      }
+    }
+
+    if (variants && variants.length > 0) {
+      for (const v of variants) {
+        if (v.sku && v.sku.trim()) {
+          const existingVarSku = await this.prisma.productVariant.findFirst({
+            where: {
+              sku: v.sku.trim(),
+              productId: { not: id },
             },
           });
+          if (existingVarSku) {
+            throw new ConflictException(
+              `Variant SKU "${v.sku.trim()}" is already assigned to another product variant. Please specify a unique SKU.`,
+            );
+          }
         }
-        resolvedCategoryId = cat.id;
       }
+    }
 
-      // 2. Update Media if provided
-      if (images !== undefined) {
-        await tx.productMedia.deleteMany({
-          where: { productId: id },
-        });
-
-        if (images.length > 0) {
-          await tx.productMedia.createMany({
-            data: images.map((url, index) => ({
-              productId: id,
-              url,
-              position: index,
-            })),
+    try {
+      const product = await this.prisma.$transaction(async (tx) => {
+        // 1. Resolve Category
+        let resolvedCategoryId: string | null | undefined = categoryId;
+        if (categoryId === undefined && category && category.trim()) {
+          const catSlug = category.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+          let cat = await tx.category.findFirst({
+            where: {
+              OR: [
+                { name: { equals: category.trim(), mode: 'insensitive' } },
+                { slug: catSlug },
+              ],
+            },
           });
+          if (!cat) {
+            cat = await tx.category.create({
+              data: {
+                name: category.trim(),
+                slug: catSlug || `category-${Date.now()}`,
+              },
+            });
+          }
+          resolvedCategoryId = cat.id;
         }
-      }
 
-      // 3. Update Variants if provided
-      if (variants !== undefined) {
-        await tx.productVariant.deleteMany({
-          where: { productId: id },
-        });
+        // 2. Update Media if provided
+        if (images !== undefined) {
+          await tx.productMedia.deleteMany({
+            where: { productId: id },
+          });
 
-        if (variants.length > 0) {
-          for (let i = 0; i < variants.length; i++) {
-            const v = variants[i];
-            const variantSku = v.sku?.trim() || `${id.slice(0, 8)}-VAR-${i + 1}-${Math.random().toString(36).substring(2, 6)}`;
-            await tx.productVariant.create({
+          if (images.length > 0) {
+            await tx.productMedia.createMany({
+              data: images.map((url, index) => ({
+                productId: id,
+                url,
+                position: index,
+              })),
+            });
+          }
+        }
+
+        // 3. Update Variants if provided
+        if (variants !== undefined) {
+          await tx.productVariant.deleteMany({
+            where: { productId: id },
+          });
+
+          if (variants.length > 0) {
+            for (let i = 0; i < variants.length; i++) {
+              const v = variants[i];
+              const variantEntropy = `${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`.toUpperCase();
+              const variantSku = v.sku?.trim() || `${id.slice(0, 8).toUpperCase()}-VAR-${i + 1}-${variantEntropy}`;
+              await tx.productVariant.create({
+                data: {
+                  productId: id,
+                  sku: variantSku,
+                  name: v.name || `Variant ${i + 1}`,
+                  price: v.price !== undefined && v.price !== null ? Number(v.price) : Number(rest.price || 0),
+                  stock: v.stock !== undefined && v.stock !== null ? Number(v.stock) : 1,
+                  condition: v.condition || condition || null,
+                  upc: v.upc || null,
+                  msrp: v.msrp !== undefined && v.msrp !== null ? Number(v.msrp) : null,
+                  manufacturer: v.manufacturer || null,
+                },
+              });
+            }
+          }
+        }
+
+        // 4. Update Tags if provided
+        if (tags !== undefined) {
+          await tx.productTag.deleteMany({
+            where: { productId: id },
+          });
+
+          for (const tagName of tags) {
+            if (!tagName || !tagName.trim()) continue;
+            const cleanName = tagName.trim();
+            let tag = await tx.tag.findUnique({
+              where: { name: cleanName },
+            });
+            if (!tag) {
+              tag = await tx.tag.create({
+                data: { name: cleanName },
+              });
+            }
+            await tx.productTag.create({
               data: {
                 productId: id,
-                sku: variantSku,
-                name: v.name || `Variant ${i + 1}`,
-                price: v.price !== undefined && v.price !== null ? Number(v.price) : Number(rest.price || 0),
-                stock: v.stock !== undefined && v.stock !== null ? Number(v.stock) : 1,
-                condition: v.condition || condition || null,
-                upc: v.upc || null,
-                msrp: v.msrp !== undefined && v.msrp !== null ? Number(v.msrp) : null,
-                manufacturer: v.manufacturer || null,
+                tagId: tag.id,
               },
             });
           }
         }
-      }
 
-      // 4. Update Tags if provided
-      if (tags !== undefined) {
-        await tx.productTag.deleteMany({
-          where: { productId: id },
-        });
+        // 5. Update Product Table Record
+        const updateData: Prisma.ProductUpdateInput = {
+          updatedAt: new Date(),
+        };
 
-        for (const tagName of tags) {
-          if (!tagName || !tagName.trim()) continue;
-          const cleanName = tagName.trim();
-          let tag = await tx.tag.findUnique({
-            where: { name: cleanName },
-          });
-          if (!tag) {
-            tag = await tx.tag.create({
-              data: { name: cleanName },
-            });
-          }
-          await tx.productTag.create({
-            data: {
-              productId: id,
-              tagId: tag.id,
+        if (rest.name !== undefined) updateData.name = rest.name;
+        if (rest.slug !== undefined) updateData.slug = rest.slug;
+        if (rest.description !== undefined) updateData.description = rest.description;
+        if (rest.price !== undefined) updateData.price = Number(rest.price);
+        if (rest.stock !== undefined) updateData.stock = Number(rest.stock);
+        if (condition !== undefined) updateData.condition = condition;
+        if (status !== undefined) updateData.status = status;
+        if (comparePrice !== undefined) updateData.comparePrice = comparePrice !== null ? Number(comparePrice) : null;
+        if (costPrice !== undefined) updateData.costPrice = costPrice !== null ? Number(costPrice) : null;
+        if (sku !== undefined) updateData.sku = sku;
+        if (weight !== undefined) updateData.weight = weight !== null ? Number(weight) : null;
+        if (manufacturer !== undefined) updateData.manufacturer = manufacturer || null;
+        if (dimensionL !== undefined) updateData.dimensionL = dimensionL !== null ? Number(dimensionL) : null;
+        if (dimensionW !== undefined) updateData.dimensionW = dimensionW !== null ? Number(dimensionW) : null;
+        if (dimensionH !== undefined) updateData.dimensionH = dimensionH !== null ? Number(dimensionH) : null;
+        if (liquidatorName !== undefined) updateData.liquidatorName = liquidatorName || null;
+        if (liquidatorLogo !== undefined) updateData.liquidatorLogo = liquidatorLogo || null;
+        if (manifest !== undefined) updateData.manifest = manifest as unknown as Prisma.InputJsonValue;
+        if (resolvedCategoryId !== undefined) updateData.category = resolvedCategoryId ? { connect: { id: resolvedCategoryId } } : { disconnect: true };
+
+        return tx.product.update({
+          where: { id },
+          data: updateData,
+          include: {
+            media: {
+              orderBy: { position: 'asc' },
             },
-          });
+            category: true,
+            variants: true,
+            tags: { include: { tag: true } },
+          },
+        });
+      }, {
+        maxWait: 15000,
+        timeout: 20000,
+      });
+
+      // Invalidate product caches
+      await this.clearProductCache();
+      return product;
+    } catch (err: any) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = (err.meta?.target as string[]) || [];
+        if (target.includes('sku') || String(err.meta?.target).includes('sku')) {
+          throw new ConflictException(
+            'A product variant with this SKU already exists. Please specify a unique SKU.',
+          );
+        }
+        if (target.includes('slug') || String(err.meta?.target).includes('slug')) {
+          throw new ConflictException(
+            'A product with this URL slug already exists. Please adjust the title.',
+          );
         }
       }
-
-      // 5. Update Product Table Record
-      const updateData: Prisma.ProductUpdateInput = {
-        updatedAt: new Date(),
-      };
-
-      if (rest.name !== undefined) updateData.name = rest.name;
-      if (rest.slug !== undefined) updateData.slug = rest.slug;
-      if (rest.description !== undefined) updateData.description = rest.description;
-      if (rest.price !== undefined) updateData.price = Number(rest.price);
-      if (rest.stock !== undefined) updateData.stock = Number(rest.stock);
-      if (condition !== undefined) updateData.condition = condition;
-      if (status !== undefined) updateData.status = status;
-      if (comparePrice !== undefined) updateData.comparePrice = comparePrice !== null ? Number(comparePrice) : null;
-      if (costPrice !== undefined) updateData.costPrice = costPrice !== null ? Number(costPrice) : null;
-      if (sku !== undefined) updateData.sku = sku;
-      if (weight !== undefined) updateData.weight = weight !== null ? Number(weight) : null;
-      if (manufacturer !== undefined) updateData.manufacturer = manufacturer || null;
-      if (dimensionL !== undefined) updateData.dimensionL = dimensionL !== null ? Number(dimensionL) : null;
-      if (dimensionW !== undefined) updateData.dimensionW = dimensionW !== null ? Number(dimensionW) : null;
-      if (dimensionH !== undefined) updateData.dimensionH = dimensionH !== null ? Number(dimensionH) : null;
-      if (liquidatorName !== undefined) updateData.liquidatorName = liquidatorName || null;
-      if (liquidatorLogo !== undefined) updateData.liquidatorLogo = liquidatorLogo || null;
-      if (manifest !== undefined) updateData.manifest = manifest as unknown as Prisma.InputJsonValue;
-      if (resolvedCategoryId !== undefined) updateData.category = resolvedCategoryId ? { connect: { id: resolvedCategoryId } } : { disconnect: true };
-
-      return tx.product.update({
-        where: { id },
-        data: updateData,
-        include: {
-          media: {
-            orderBy: { position: 'asc' },
-          },
-          category: true,
-          variants: true,
-          tags: { include: { tag: true } },
-        },
-      });
-    }, {
-      maxWait: 15000,
-      timeout: 20000,
-    });
-
-    // Invalidate product caches
-    await this.clearProductCache();
-    return product;
+      throw err;
+    }
   }
 
   async remove(id: string) {
-    // Commit soft delete mutation to database
+    // 1. Commit soft delete mutation to database
     const product = await this.prisma.product.update({
       where: { id },
       data: { deletedAt: new Date() }
     });
+
+    // 2. Release SKUs on variants so they can be reused by future products
+    try {
+      const variants = await this.prisma.productVariant.findMany({
+        where: { productId: id },
+      });
+      for (const v of variants) {
+        if (!v.sku.includes('_DELETED_')) {
+          await this.prisma.productVariant.update({
+            where: { id: v.id },
+            data: { sku: `${v.sku}_DELETED_${Date.now()}` },
+          });
+        }
+      }
+    } catch (variantErr) {
+      this.logger.warn(`Failed to release variant SKUs for product ${id}: ${variantErr}`);
+    }
 
     // Invalidate product caches
     await this.clearProductCache();

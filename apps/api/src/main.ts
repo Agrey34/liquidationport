@@ -3,7 +3,6 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { GlobalHttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
-import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { ExpressAdapter } from '@nestjs/platform-express';
 
@@ -94,7 +93,8 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalHttpExceptionFilter());
 
   // --- INTERCEPTORS ---
-  app.useGlobalInterceptors(new LoggingInterceptor(), new TransformInterceptor());
+  // Note: LoggingInterceptor is already registered as APP_INTERCEPTOR in AppModule
+  app.useGlobalInterceptors(new TransformInterceptor());
 
   // Prefix endpoints for REST standards
   app.setGlobalPrefix('api/v1');

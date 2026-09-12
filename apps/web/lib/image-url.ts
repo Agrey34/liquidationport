@@ -15,6 +15,12 @@ export function getMediaUrl(url?: string | null, fallback: string = DEFAULT_PROD
   }
 
   const trimmed = url.trim();
+
+  // 0. If it's a client-side blob URL or inline data URI, return as-is immediately
+  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) {
+    return trimmed;
+  }
+
   const rawApiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
   const apiBase = rawApiBase.endsWith('/api/v1')
     ? rawApiBase.replace(/\/$/, '')
