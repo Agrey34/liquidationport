@@ -4,7 +4,8 @@
   "description": "NestJS Backend for Liquidationport",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "build": "prisma generate && nest build",
+    "postinstall": "prisma generate",
     "format": "prettier --write \"src/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -25,6 +26,7 @@
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.19.3",
+    "prisma": "^6.19.3",
     "@supabase/supabase-js": "^2.39.0",
     "cache-manager": "^5.4.0",
     "class-transformer": "^0.5.1",
@@ -49,7 +51,6 @@
     "eslint-plugin-prettier": "^5.4.0",
     "pg": "^8.20.0",
     "prettier": "^3.5.3",
-    "prisma": "^6.19.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   }
