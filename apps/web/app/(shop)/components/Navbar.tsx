@@ -75,60 +75,41 @@ export default function Navbar() {
     };
   }, [isAccountMenuOpen]);
 
-  // --- 1. Guest-to-Account Synchronization & Inventory Hold Initiation ---
+  // --- 1. Guest-to-Account Synchronization (Server-Backed HttpOnly Cookie) ---
   const mergeGuestDataToAccount = useCallback(async () => {
     try {
-      const guestCartRaw = localStorage.getItem('guest_cart');
-      const guestWishlistRaw = localStorage.getItem('guest_wishlist');
-
-      const guestCart = guestCartRaw ? JSON.parse(guestCartRaw) : [];
-      const guestWishlist = guestWishlistRaw ? JSON.parse(guestWishlistRaw) : [];
-
-      // If user had no local items, verify if an active reservation already exists in DB
-      if (guestCart.length === 0 && guestWishlist.length === 0) {
-        try {
-          const [res] = await Promise.all([
-            apiFetch<{ hasActiveReservation: boolean; remainingSeconds: number }>('/carts/reservation'),
-            refreshCart(),
-            refreshWishlist(),
-          ]);
-          if (res?.data?.remainingSeconds > 0) {
-            setSecondsRemaining(res.data.remainingSeconds);
-          }
-        } catch {
-          // Ignored for non-active carts
-        }
-        return;
-      }
-
-      // Merge guest cart & wishlist into database-backed account
+      // Merge guest cart & wishlist into database-backed account via HttpOnly cookie
       const res = await apiFetch<{
         success: boolean;
-        holdExpiresInSeconds: number;
+        mergedCartItems: number;
+        mergedWishlistItems: number;
         warnings?: string[];
-        mergedCart?: any[];
       }>('/carts/merge-guest-session', {
         method: 'POST',
-        body: JSON.stringify({
-          guestCart: guestCart.map((item: any) => ({
-            variantId: item.id,
-            quantity: Number(item.qty || 1),
-          })),
-          guestProductIds: guestWishlist.map((w: any) => w.id),
-        }),
       });
 
-      if (res?.data) {
-        if (res.data.holdExpiresInSeconds > 0) {
-          setSecondsRemaining(res.data.holdExpiresInSeconds);
-        }
-        // Discard guest cache and replace all client state from the database.
+      // Cleanup any legacy localStorage keys if they exist
+      try {
         localStorage.removeItem('guest_cart');
         localStorage.removeItem('guest_wishlist');
-        await Promise.all([refreshCart(), refreshWishlist()]);
-        if (res.data.warnings && res.data.warnings.length > 0) {
-          res.data.warnings.forEach((warn) => toast.warning(warn));
-        }
+      } catch {}
+
+      // Refresh cart and wishlist from the server
+      await Promise.all([
+        refreshCart(),
+        refreshWishlist(),
+        (async () => {
+          try {
+            const reservationRes = await apiFetch<{ hasActiveReservation: boolean; remainingSeconds: number }>('/carts/reservation');
+            if (reservationRes?.data?.remainingSeconds > 0) {
+              setSecondsRemaining(reservationRes.data.remainingSeconds);
+            }
+          } catch {}
+        })(),
+      ]);
+
+      if (res?.data?.warnings && res.data.warnings.length > 0) {
+        res.data.warnings.forEach((warn) => toast.warning(warn));
       }
     } catch (err) {
       console.warn('Guest data sync notice:', err);
@@ -389,7 +370,7 @@ export default function Navbar() {
                         <span className="w-7 h-7 rounded-full bg-primary text-white flex items-center justify-center text-xs font-black shrink-0 shadow-2xs">
                           {user.firstName.charAt(0).toUpperCase()}
                         </span>
-                        <span className="max-w-[120px] truncate">Hi, {user.firstName}</span>
+                        <span className="max-w-30 truncate">Hi, {user.firstName}</span>
                         <ChevronDown
                           className={`w-4 h-4 transition-transform duration-200 opacity-70 ${
                             isAccountMenuOpen ? 'rotate-180' : ''
@@ -489,7 +470,7 @@ export default function Navbar() {
               >
                 <Heart className="w-5 h-5" />
                 {wishlistCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-xs animate-in zoom-in-50">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 bg-rose-500 text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-xs animate-in zoom-in-50">
                     {wishlistCount}
                   </span>
                 )}
@@ -536,7 +517,7 @@ export default function Navbar() {
                 >
                   <ShoppingCart className="w-5 h-5" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-xs animate-in zoom-in-50">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center px-1 shadow-xs animate-in zoom-in-50">
                       {cartCount}
                     </span>
                   )}
@@ -598,7 +579,7 @@ export default function Navbar() {
 
       {/* Mobile Slide-out Drawer */}
       <div
-        className={`fixed top-0 left-0 h-full w-[300px] bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${
+        className={`fixed top-0 left-0 h-full w-75 bg-white z-50 shadow-2xl transform transition-transform duration-300 ease-in-out flex flex-col ${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -1,8 +1,10 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
+import { AuthenticatedUser } from '../../types/authenticated-request.interface';
+import { assertValidOrderTransition } from './order-state-machine';
 
 @Injectable()
 export class OrdersService {
@@ -12,9 +14,25 @@ export class OrdersService {
 
   /**
    * Creates a new order using a secure Prisma transaction.
-   * Validates stock availability, snapshots prices, and reserves inventory.
+   * Validates stock availability, snapshots prices, reserves inventory,
+   * logs inventory movements, emits an outbox event, and enforces idempotency.
    */
-  async createOrder(userId: string, createOrderDto: CreateOrderDto) {
+  async createOrder(
+    userId: string,
+    createOrderDto: CreateOrderDto,
+    idempotencyKey?: string,
+  ) {
+    // 0. Idempotency Check: if key provided and valid, return cached response
+    if (idempotencyKey) {
+      const cachedKey = await this.prisma.idempotencyKey.findUnique({
+        where: { key: idempotencyKey },
+      });
+      if (cachedKey && cachedKey.expiresAt > new Date()) {
+        this.logger.log(`Returning idempotent response for key: ${idempotencyKey}`);
+        return cachedKey.responseBody;
+      }
+    }
+
     const { items } = createOrderDto;
 
     if (!items || items.length === 0) {
@@ -105,6 +123,53 @@ export class OrdersService {
         }
       });
 
+      // 5. Record InventoryMovement audit for stock reservations
+      if (tx.inventoryMovement?.create) {
+        for (const item of items) {
+          await tx.inventoryMovement.create({
+            data: {
+              variantId: item.variantId,
+              quantityChange: -item.quantity,
+              type: 'RESERVATION',
+              referenceType: 'order',
+              referenceId: order.id,
+              note: `Inventory reserved for order #${order.id}`,
+              actorId: userId,
+            },
+          });
+        }
+      }
+
+      // 6. Write outbox event for reliable notification delivery
+      if (tx.outboxEvent?.create) {
+        await tx.outboxEvent.create({
+          data: {
+            eventType: 'ORDER_CREATED',
+            payload: {
+              orderId: order.id,
+              userId,
+              total: orderTotal,
+            },
+            status: 'pending',
+          },
+        });
+      }
+
+      // 7. Save Idempotency key if provided
+      if (idempotencyKey && tx.idempotencyKey?.upsert) {
+        await tx.idempotencyKey.upsert({
+          where: { key: idempotencyKey },
+          update: { responseBody: order as any },
+          create: {
+            key: idempotencyKey,
+            userId,
+            responseBody: order as any,
+            statusCode: 201,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours TTL
+          },
+        });
+      }
+
       this.logger.log(`Order ${order.id} created successfully for user ${userId}`);
 
       return order;
@@ -194,8 +259,8 @@ export class OrdersService {
     const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
     const skip = (safePage - 1) * safeLimit;
 
-    // Construct Prisma Where Input
-    const where: any = {};
+    // Construct typed Prisma Where Input
+    const where: Prisma.OrderWhereInput = {};
 
     // 1. Search Query
     if (search && search.trim()) {
@@ -230,16 +295,15 @@ export class OrdersService {
       where.payment = { status: paymentStatus as PaymentStatus };
     }
 
-    // Dynamic sorting
-    let orderBy: any = { createdAt: 'desc' };
+    // Dynamic sorting with typed Prisma orderBy
+    const sortDirection: Prisma.SortOrder = sortDir === 'asc' ? 'asc' : 'desc';
+    let orderBy: Prisma.OrderOrderByWithRelationInput = { createdAt: sortDirection };
     if (sortBy === 'total') {
-      orderBy = { total: sortDir === 'asc' ? 'asc' : 'desc' };
+      orderBy = { total: sortDirection };
     } else if (sortBy === 'status') {
-      orderBy = { status: sortDir === 'asc' ? 'asc' : 'desc' };
+      orderBy = { status: sortDirection };
     } else if (sortBy === 'id') {
-      orderBy = { id: sortDir === 'asc' ? 'asc' : 'desc' };
-    } else {
-      orderBy = { createdAt: sortDir === 'asc' ? 'asc' : 'desc' };
+      orderBy = { id: sortDirection };
     }
 
     // Execute optimized queries in parallel without blocking transactions
@@ -290,6 +354,7 @@ export class OrdersService {
             select: {
               id: true,
               email: true,
+              phone: true,
               addresses: {
                 take: 1,
                 select: {
@@ -398,7 +463,7 @@ export class OrdersService {
         id: order.id,
         customerName,
         customerEmail: email,
-        customerPhone: '+1 (555) 019-2834',
+        customerPhone: order.user?.phone ?? null,
         shippingAddress: addressString,
         status: order.status,
         paymentStatus: (order.payment?.status || (order.status === 'paid' ? 'paid' : 'pending')) as string,
@@ -479,15 +544,19 @@ export class OrdersService {
     id: string,
     status: OrderStatus,
     note?: string,
-    adminUser?: { id?: string; email?: string; role?: string }
+    adminUser?: Partial<Pick<AuthenticatedUser, 'id' | 'email' | 'role'>>,
   ) {
     const existingOrder = await this.prisma.order.findUnique({
       where: { id },
+      include: { items: true },
     });
 
     if (!existingOrder) {
       throw new NotFoundException(`Order with ID ${id} not found`);
     }
+
+    // Guard: enforce the order state machine before touching the DB
+    assertValidOrderTransition(existingOrder.status, status);
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Update order status
@@ -515,25 +584,84 @@ export class OrdersService {
         }
       });
 
-      // 3. Log admin action to audit logs
-      try {
-        await tx.auditLog.create({
-          data: {
-            userId: adminUser?.id || null,
-            userName: adminUser?.email || 'Admin',
-            userRole: adminUser?.role || 'admin',
-            action: 'UPDATE_ORDER_STATUS',
-            entity: 'order',
-            entityId: id,
-            details: {
-              oldStatus: existingOrder.status,
-              newStatus: status,
-              note,
+      // 3. Handle stock restoration on cancellation or refund
+      if (status === OrderStatus.cancelled || status === OrderStatus.refunded) {
+        for (const item of existingOrder.items) {
+          if (item.variantId) {
+            if (existingOrder.status === OrderStatus.pending) {
+              // Order was only pending: release the reservation hold
+              await tx.inventory.updateMany({
+                where: { variantId: item.variantId },
+                data: {
+                  reserved: { decrement: item.quantity },
+                },
+              });
+            } else {
+              // Order was paid/processing/shipped: return stock quantity to available inventory
+              await tx.inventory.updateMany({
+                where: { variantId: item.variantId },
+                data: {
+                  quantity: { increment: item.quantity },
+                },
+              });
+            }
+
+            // Record movement audit
+            if (tx.inventoryMovement?.create) {
+              await tx.inventoryMovement.create({
+                data: {
+                  variantId: item.variantId,
+                  quantityChange: item.quantity,
+                  type: status === OrderStatus.cancelled ? 'CANCELLATION' : 'RETURN',
+                  referenceType: 'order',
+                  referenceId: id,
+                  note: `Order #${id} status changed from ${existingOrder.status} to ${status}`,
+                  actorId: adminUser?.id || null,
+                },
+              });
             }
           }
-        });
+        }
+      }
+
+      // 4. Log admin action to audit logs
+      try {
+        if (tx.auditLog?.create) {
+          await tx.auditLog.create({
+            data: {
+              userId: adminUser?.id || null,
+              userName: adminUser?.email || 'Admin',
+              userRole: adminUser?.role || 'admin',
+              action: 'UPDATE_ORDER_STATUS',
+              entity: 'order',
+              entityId: id,
+              details: {
+                oldStatus: existingOrder.status,
+                newStatus: status,
+                note,
+              }
+            }
+          });
+        }
       } catch (err) {
         this.logger.warn(`Failed to write audit log for order status update: ${err}`);
+      }
+
+      // 5. Emit Outbox event for asynchronous notification / webhook dispatch
+      if (tx.outboxEvent?.create) {
+        await tx.outboxEvent.create({
+          data: {
+            eventType: 'ORDER_STATUS_CHANGED',
+            payload: {
+              orderId: id,
+              userId: existingOrder.userId,
+              oldStatus: existingOrder.status,
+              status,
+              note,
+            },
+            status: 'pending',
+          },
+        });
       }
 
       this.logger.log(`Order ${id} status updated from ${existingOrder.status} to ${status}`);

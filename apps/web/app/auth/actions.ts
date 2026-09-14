@@ -43,53 +43,64 @@ export async function login(formData: FormData) {
 }
 
 // --------------------------------------------------------------------------------
-// SIGN UP
+// --------------------------------------------------------------------------------
+// ADMIN SIGN UP (Requires structural protection passcode)
 // --------------------------------------------------------------------------------
 export async function signup(formData: FormData) {
-  const supabase = await createClient()
-
   const firstName = (formData.get('firstName') as string)?.trim() || ''
   const lastName = (formData.get('lastName') as string)?.trim() || ''
-  const email = formData.get('email') as string
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
+  const passcode = (formData.get('passcode') as string)?.trim()
 
   if (!email || !password) {
-    return { error: 'Email and password are required' }
+    return { error: 'Email and password are required.' }
   }
 
   if (password !== confirmPassword) {
-    return { error: 'Passwords do not match' }
+    return { error: 'Passwords do not match.' }
   }
 
   if (password.length < 8) {
-    return { error: 'Password must be at least 8 characters long' }
+    return { error: 'Password must be at least 8 characters long.' }
   }
 
-  // Attempt signup via Supabase
-  // In production, this requires email verification by default
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-  
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/admin/products/create`,
-      data: {
-        first_name: firstName,
-        last_name: lastName,
-        full_name: [firstName, lastName].filter(Boolean).join(' '),
-        role: 'admin',
-      }
+  if (!passcode) {
+    return { error: 'Admin authorization passcode is required for administrative accounts.' }
+  }
+
+  // Forward to backend protected endpoint: POST /api/v1/auth/admin/register
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+  const baseUrl = envUrl.endsWith('/api/v1') ? envUrl : `${envUrl}/api/v1`;
+
+  try {
+    const res = await fetch(`${baseUrl}/auth/admin/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        firstName,
+        lastName,
+        passcode,
+      }),
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      const errorMsg = data?.message || data?.error || 'Registration failed. Invalid authorization passcode.';
+      return { error: errorMsg };
     }
-  })
-
-  if (error) {
-    return { error: getCleanErrorMessage(error, 'Unable to create account. Please try again shortly.') }
+  } catch (err: any) {
+    return { error: getCleanErrorMessage(err, 'Unable to connect to authentication server. Please try again.') };
   }
 
-  // Redirect to a verification pending page
-  redirect('/admin-login/verify?message=Check your email to verify your account')
+  // Redirect to admin login with success confirmation
+  redirect('/admin-login?message=Admin account provisioned successfully. Please sign in.')
 }
 
 // --------------------------------------------------------------------------------

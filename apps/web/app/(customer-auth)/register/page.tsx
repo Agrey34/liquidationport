@@ -67,73 +67,68 @@ export default function CustomerRegisterPage() {
 
       const trimmedFirst = firstName.trim();
       const trimmedLast = lastName.trim();
-      const combinedFullName = `${trimmedFirst} ${trimmedLast}`.trim();
       const normalizedEmail = email.trim().toLowerCase();
       const standardizedPhone = phone.trim() || undefined;
 
-      // STEP 1: Backend Pre-Flight Unique Account Verification (HTTP 409)
+      // STEP 1 & 2: Backend Customer/Buyer Registration via POST /api/v1/auth/customer/register
+      // Explicitly creates the account with "BUYER" role in Supabase Auth and PostgreSQL
       try {
-        await apiFetch('/auth/check-account', {
+        await apiFetch('/auth/customer/register', {
           method: 'POST',
           body: JSON.stringify({
             email: normalizedEmail,
+            password,
+            firstName: trimmedFirst,
+            lastName: trimmedLast,
             phone: standardizedPhone,
+            buyerType: 'Retail Buyer',
           }),
         });
-      } catch (checkErr: any) {
-        // Intercept HTTP 409 Conflict status or structured duplicate error
+      } catch (regErr: any) {
         if (
-          checkErr?.status === 409 ||
-          checkErr?.data?.status === 'error' ||
-          checkErr?.message?.toLowerCase().includes('already associated') ||
-          checkErr?.message?.toLowerCase().includes('already registered')
+          regErr?.status === 409 ||
+          regErr?.data?.status === 'error' ||
+          isAccountConflictError(regErr) ||
+          regErr?.message?.toLowerCase().includes('already associated') ||
+          regErr?.message?.toLowerCase().includes('already registered')
         ) {
           setAccountConflict({
             isConflict: true,
-            message: checkErr?.data?.message || 'This email or phone number is already associated with an account.',
-            conflictField: checkErr?.data?.conflictField,
+            message: regErr?.data?.message || 'This email or phone number is already associated with an account.',
+            conflictField: regErr?.data?.conflictField,
           });
           setIsLoading(false);
           return;
         }
-      }
 
-      // STEP 2: Supabase Auth Creation
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email: normalizedEmail,
-        password,
-        options: {
-          data: {
-            first_name: trimmedFirst,
-            last_name: trimmedLast,
-            full_name: combinedFullName,
-            phone: standardizedPhone,
-            role: 'customer',
-          },
-        },
-      });
-
-      if (signUpError) {
-        if (isAccountConflictError(signUpError)) {
-          setAccountConflict({
-            isConflict: true,
-            message: 'This email or phone number is already associated with an account.',
-          });
-        } else {
-          setError(getCleanErrorMessage(signUpError, 'Unable to create account. Please try again shortly.'));
-        }
+        setError(getCleanErrorMessage(regErr, 'Unable to create buyer account. Please try again shortly.'));
         setIsLoading(false);
         return;
       }
 
-      if (data.session) {
-        window.location.href = '/';
-      } else {
-        setSuccessMsg('Account created successfully! Please check your email to verify.');
+      // STEP 3: Authenticate buyer session in browser client
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+
+      if (signInError) {
+        setSuccessMsg('Account created successfully! Redirecting to login...');
         setIsLoading(false);
         setTimeout(() => {
           router.push('/login');
-        }, 2500);
+        }, 1500);
+        return;
+      }
+
+      if (signInData?.session) {
+        window.location.href = '/';
+      } else {
+        setSuccessMsg('Account created successfully! Redirecting...');
+        setIsLoading(false);
+        setTimeout(() => {
+          router.push('/');
+        }, 1000);
       }
     } catch (err: unknown) {
       console.error('Registration error:', err);
@@ -158,7 +153,7 @@ export default function CustomerRegisterPage() {
   };
 
   return (
-    <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl border border-neutral-200/90 overflow-hidden p-6 sm:p-7 transition-all">
+    <div className=" max-w-105 bg-white rounded-2xl shadow-2xl border border-neutral-200/90 overflow-hidden p-6 sm:p-7 transition-all">
       {/* Header with Brand Logo & Close Icon */}
       <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
         <Link href="/" className="flex items-center gap-1 group">
@@ -296,9 +291,9 @@ export default function CustomerRegisterPage() {
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
-                <Eye className="w-5 h-5 stroke-[2]" />
+                <Eye className="w-5 h-5 stroke-2" />
               ) : (
-                <EyeOff className="w-5 h-5 stroke-[2]" />
+                <EyeOff className="w-5 h-5 stroke-2" />
               )}
             </button>
           </div>
@@ -320,9 +315,9 @@ export default function CustomerRegisterPage() {
               aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
               {showConfirmPassword ? (
-                <Eye className="w-5 h-5 stroke-[2]" />
+                <Eye className="w-5 h-5 stroke-2" />
               ) : (
-                <EyeOff className="w-5 h-5 stroke-[2]" />
+                <EyeOff className="w-5 h-5 stroke-2" />
               )}
             </button>
           </div>

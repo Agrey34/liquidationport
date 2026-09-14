@@ -29,44 +29,45 @@ export class AdminsService {
   }
 
   async getDashboardStats() {
+    // Use parallel aggregate queries instead of loading all orders into memory.
+    // $queryRaw is safe here — no user input is interpolated.
     const [
-      orders,
+      revenueResult,
+      pendingOrdersCount,
       activeProductsCount,
       totalUsersCount,
       recentOrdersRaw,
-    ] = await this.prisma.$transaction([
+    ] = await Promise.all([
+      // Aggregate total revenue server-side (excludes cancelled orders and failed payments)
+      this.prisma.$queryRaw<Array<{ total: string }>>`
+        SELECT COALESCE(SUM(o.total), 0)::text AS total
+        FROM orders o
+        LEFT JOIN payments p ON p.order_id = o.id
+        WHERE o.status != 'cancelled'
+          AND (p.status IS NULL OR p.status != 'failed')
+      `,
+      // Count pending orders
+      this.prisma.order.count({ where: { status: 'pending' } }),
+      // Count active (non-deleted) products
+      this.prisma.product.count({ where: { deletedAt: null } }),
+      // Count active (non-deleted) users
+      this.prisma.user.count({ where: { deletedAt: null } }),
+      // Fetch the 5 most recent orders with minimal joins
       this.prisma.order.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
         select: {
           id: true,
           total: true,
           status: true,
           createdAt: true,
-          payment: { select: { status: true } },
-        }
-      }),
-      this.prisma.product.count({
-        where: { deletedAt: null }
-      }),
-      this.prisma.user.count({
-        where: { deletedAt: null }
-      }),
-      this.prisma.order.findMany({
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-        include: {
           user: { select: { email: true } },
           payment: { select: { status: true } },
-        }
+        },
       }),
     ]);
 
-    // Calculate Total Revenue
-    const totalRevenue = orders
-      .filter((o) => o.status !== 'cancelled' && o.payment?.status !== 'failed')
-      .reduce((sum, o) => sum + Number(o.total || 0), 0);
-
-    // Calculate Pending Orders
-    const pendingOrdersCount = orders.filter((o) => o.status === 'pending').length;
+    const totalRevenue = Number(revenueResult[0]?.total ?? '0');
 
     // Format Recent Orders
     const recentOrders = recentOrdersRaw.map((order) => {

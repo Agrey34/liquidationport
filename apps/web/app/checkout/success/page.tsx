@@ -7,9 +7,7 @@ import {
   ChevronRight,
   Package,
   Truck,
-  Download,
   BellRing,
-  MapPin,
   Clock,
   Printer,
   FileText,
@@ -44,27 +42,30 @@ export default function CheckoutSuccessPage() {
   const [customerEmail, setCustomerEmail] = useState('customer@example.com');
 
   useEffect(() => {
-    try {
-      // 1. Check URL parameters
-      if (typeof window !== 'undefined') {
-        const params = new URLSearchParams(window.location.search);
-        const paramId = params.get('orderId');
-        const paramEmail = params.get('email');
-        if (paramId) setOrderId(paramId);
-        if (paramEmail) setCustomerEmail(decodeURIComponent(paramEmail));
+    const timer = setTimeout(() => {
+      try {
+        if (typeof window !== 'undefined') {
+          const params = new URLSearchParams(window.location.search);
+          const paramId = params.get('orderId');
+          const paramEmail = params.get('email');
+          const stored = sessionStorage.getItem('last_order');
 
-        // 2. Check SessionStorage for rich order object
-        const stored = sessionStorage.getItem('last_order');
-        if (stored) {
-          const parsed = JSON.parse(stored) as StoredOrder;
-          setOrder(parsed);
-          if (parsed.orderId) setOrderId(parsed.orderId);
-          if (parsed.email) setCustomerEmail(parsed.email);
+          if (stored) {
+            const parsed = JSON.parse(stored) as StoredOrder;
+            setOrder(parsed);
+            if (parsed.orderId) setOrderId(parsed.orderId);
+            if (parsed.email) setCustomerEmail(parsed.email);
+          } else {
+            if (paramId) setOrderId(paramId);
+            if (paramEmail) setCustomerEmail(decodeURIComponent(paramEmail));
+          }
         }
+      } catch (err) {
+        console.warn('Failed to parse last order from session storage:', err);
       }
-    } catch (err) {
-      console.warn('Failed to parse last order from session storage:', err);
-    }
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handlePrintInvoice = () => {
@@ -110,7 +111,7 @@ export default function CheckoutSuccessPage() {
             Carrier appointment booking will be coordinated via the delivery phone number provided. You will receive real-time carrier BOL updates.
           </p>
 
-          <div className="space-y-6 relative before:absolute before:inset-y-0 before:left-[19px] before:w-[2px] before:bg-neutral-100">
+          <div className="space-y-6 relative before:absolute before:inset-y-0 before:left-4.75 before:w-0.5 before:bg-neutral-100">
             {/* Step 1 */}
             <div className="relative flex items-start gap-4">
               <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center shrink-0 z-10 shadow-sm">

@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, ForbiddenException, Optional
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { PrismaService } from '../../database/prisma.service';
+import { AuthenticatedRequest } from '../../types/authenticated-request.interface';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -15,36 +16,38 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (!requiredRoles || requiredRoles.length === 0) {
       return true; // No roles required, access granted
     }
-    
-    const request = context.switchToHttp().getRequest();
-    const user = request.user; // User object attached by SupabaseAuthGuard
+
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
 
     if (!user) {
       throw new ForbiddenException('User is not authenticated');
     }
 
-    // Role hierarchy mapping: higher roles inherit all lower role privileges
+    // Role hierarchy: higher roles inherit all lower role privileges.
+    // SECURITY: roles are resolved from verified JWT app_metadata, never client-supplied.
     const roleHierarchy: Record<string, string[]> = {
-      super_admin: ['super_admin', 'admin', 'customer'],
-      admin: ['admin', 'customer'],
-      customer: ['customer'],
+      super_admin: ['super_admin', 'admin', 'customer', 'buyer'],
+      admin: ['admin', 'customer', 'buyer'],
+      customer: ['customer', 'buyer'],
+      buyer: ['buyer', 'customer'],
     };
 
-    // 1. Check verified claim from JWT payload
-    let userRole = user.app_metadata?.role;
+    // 1. Primary: Check verified claim from JWT app_metadata (server-set, trusted)
+    let userRole: string | undefined = user.app_metadata?.role;
     if (!userRole || userRole === 'authenticated') {
-      // In Supabase, default payload.role is 'authenticated', which is not a domain role
-      userRole = user.role && user.role !== 'authenticated' ? user.role : null;
+      // Supabase default payload.role is 'authenticated' — not a domain role
+      userRole = user.role && user.role !== 'authenticated' ? user.role : undefined;
     }
 
-    const effectiveRoles = userRole ? (roleHierarchy[userRole] || [userRole]) : [];
+    const effectiveRoles = userRole ? (roleHierarchy[userRole] ?? [userRole]) : [];
     let hasRole = requiredRoles.some((role) => effectiveRoles.includes(role));
 
-    // 2. Fallback to database lookup if token role is missing, stale, or insufficient
+    // 2. Fallback: DB lookup when JWT role is absent or stale
     if (!hasRole && user.id && this.prisma) {
       try {
         const adminRecord = await this.prisma.admin.findUnique({
@@ -66,7 +69,7 @@ export class RolesGuard implements CanActivate {
 
         if (userRole) {
           request.user.role = userRole;
-          const dbEffectiveRoles = roleHierarchy[userRole] || [userRole];
+          const dbEffectiveRoles = roleHierarchy[userRole] ?? [userRole];
           hasRole = requiredRoles.some((role) => dbEffectiveRoles.includes(role));
         }
       } catch {

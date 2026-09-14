@@ -40,13 +40,15 @@ async function bootstrap() {
   const rawOrigins = [
     process.env.FRONTEND_URL,
     process.env.CORS_ORIGIN,
+    process.env.CORS_ALLOWED_ORIGINS, // Comma-separated list for multi-origin production setups
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002',
     'http://127.0.0.1:3000',
     'http://127.0.0.1:3001',
     'http://127.0.0.1:3002',
-    'http://liquidationport-web-66dj-amber.vercel.app',
+    // Hardcode known production Vercel URL — do NOT use a wildcard
+    'https://liquidationport-web-66dj-amber.vercel.app',
   ];
 
   // Flatten and normalize configured origins (split comma-separated lists, remove trailing slashes)
@@ -58,25 +60,25 @@ async function bootstrap() {
 
   app.enableCors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, server-to-server)
+      // Allow requests with no origin (mobile apps, curl, server-to-server health checks)
       if (!origin) return callback(null, true);
 
       const normalizedOrigin = origin.trim().replace(/\/+$/, '');
 
-      if (
-        configuredOrigins.includes(normalizedOrigin) ||
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin) ||
-        /^https:\/\/.*\.vercel\.app$/.test(normalizedOrigin)
-      ) {
+      const isLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin);
+      const isAllowed = configuredOrigins.includes(normalizedOrigin);
+
+      if (isLocalhost || isAllowed) {
         return callback(null, true);
       }
 
-      console.warn(`[CORS Blocked] Origin not allowed: ${origin}`);
+      // Block and log the rejected origin — do not reveal info to caller
+      console.warn(`[CORS Blocked] Origin not in allowlist: ${origin}`);
       return callback(null, false);
     },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'X-Request-ID'],
   });
   // --- SECURITY: GLOBAL VALIDATION PIPE ---
   // Any DTO body validation occurs globally here based on class-validator decorators.

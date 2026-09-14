@@ -1,60 +1,97 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseUUIDPipe, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  ParseUUIDPipe,
+  Req,
+  Res,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { Request, Response } from 'express';
 import { CartsService } from './carts.service';
-import { AddToCartDto, UpdateCartItemDto, MergeGuestSessionDto } from './dto/cart.dto';
+import { AddToCartDto, UpdateCartItemDto } from './dto/cart.dto';
+import { GuestSessionsService } from '../guest-sessions/guest-sessions.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../types/authenticated-request.interface';
 
 @Controller('carts')
 @UseGuards(SupabaseAuthGuard)
 export class CartsController {
-  constructor(private readonly cartsService: CartsService) {}
+  constructor(
+    private readonly cartsService: CartsService,
+    private readonly guestSessionsService: GuestSessionsService,
+  ) {}
 
   @Get()
-  getCart(@Req() req) {
-    return this.cartsService.getCart(req.user.id);
+  getCart(@CurrentUser() user: AuthenticatedUser) {
+    return this.cartsService.getCart(user.id);
   }
 
   @Get('reservation')
-  getReservation(@Req() req) {
-    return this.cartsService.getReservation(req.user.id);
+  getReservation(@CurrentUser() user: AuthenticatedUser) {
+    return this.cartsService.getReservation(user.id);
   }
 
   @Get('wishlist')
-  getWishlist(@Req() req) {
-    return this.cartsService.getWishlist(req.user.id);
+  getWishlist(@CurrentUser() user: AuthenticatedUser) {
+    return this.cartsService.getWishlist(user.id);
   }
 
   @Post('wishlist/items/:productId')
-  addWishlistItem(@Req() req, @Param('productId', ParseUUIDPipe) productId: string) {
-    return this.cartsService.addWishlistItem(req.user.id, productId);
+  addWishlistItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('productId', ParseUUIDPipe) productId: string,
+  ) {
+    return this.cartsService.addWishlistItem(user.id, productId);
   }
 
   @Delete('wishlist/items/:productId')
-  removeWishlistItem(@Req() req, @Param('productId', ParseUUIDPipe) productId: string) {
-    return this.cartsService.removeWishlistItem(req.user.id, productId);
+  removeWishlistItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('productId', ParseUUIDPipe) productId: string,
+  ) {
+    return this.cartsService.removeWishlistItem(user.id, productId);
   }
 
   @Post('merge-guest-session')
   @HttpCode(HttpStatus.OK)
-  mergeGuestSession(@Req() req, @Body() dto: MergeGuestSessionDto) {
-    return this.cartsService.mergeGuestSession(req.user.id, dto);
+  mergeGuestSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.guestSessionsService.mergeGuestSessionIntoAccount(user.id, req, res);
   }
 
   @Post('items')
-  addItem(@Req() req, @Body() addToCartDto: AddToCartDto) {
-    return this.cartsService.addItem(req.user.id, addToCartDto);
+  addItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() addToCartDto: AddToCartDto,
+  ) {
+    return this.cartsService.addItem(user.id, addToCartDto);
   }
 
   @Patch('items/:id')
   updateItem(
-    @Req() req,
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() updateCartItemDto: UpdateCartItemDto,
   ) {
-    return this.cartsService.updateItem(req.user.id, id, updateCartItemDto);
+    return this.cartsService.updateItem(user.id, id, updateCartItemDto);
   }
 
   @Delete('items/:id')
-  removeItem(@Req() req, @Param('id', ParseUUIDPipe) id: string) {
-    return this.cartsService.removeItem(req.user.id, id);
+  removeItem(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.cartsService.removeItem(user.id, id);
   }
 }

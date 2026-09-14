@@ -92,6 +92,7 @@ export async function apiFetch<T>(
   let response: Response;
   try {
     response = await fetch(url, {
+      credentials: options.credentials ?? 'include',
       ...options,
       headers,
     });

@@ -1,15 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   ChevronRight,
   CreditCard,
-  Box,
-  MapPin,
-  CheckCircle2,
   ShoppingCart,
   ArrowLeft,
   Truck,
@@ -18,12 +15,11 @@ import {
   AlertCircle,
   Tag,
   X,
-  Phone,
   Mail,
   User,
   HelpCircle,
-  Clock,
   Sparkles,
+  Check,
 } from 'lucide-react';
 import { useCart } from '../../lib/context/StoreContext';
 import { createClient } from '../../lib/supabase/client';
@@ -98,7 +94,6 @@ const CANADIAN_PROVINCES = [
   { code: 'SK', name: 'Saskatchewan' },
 ];
 
-// ── Shipping Methods Definition ───────────────────────────────────────────────
 export interface ShippingMethod {
   id: string;
   name: string;
@@ -113,7 +108,7 @@ const SHIPPING_METHODS: ShippingMethod[] = [
     id: 'ltl_standard',
     name: 'Standard LTL Freight (Commercial Dock / Curbside)',
     badge: 'Most Popular',
-    description: '3–5 Business Days • Includes appointment scheduling & liftgate service',
+    description: '3–5 Business Days • Scheduled delivery appointment included',
     price: 150.0,
     estimatedTransit: '3–5 Business Days',
   },
@@ -129,7 +124,7 @@ const SHIPPING_METHODS: ShippingMethod[] = [
     id: 'local_pickup',
     name: 'Central Terminal Local Pickup (Will-Call Dock)',
     badge: 'Free Pickup',
-    description: 'Ready in 24 Hours • Dallas Terminal (Bay 4) • Bring Box Truck or Flatbed',
+    description: 'Ready in 24 Hours • Dallas Central Hub (Bay 4) • Bring Box Truck or Flatbed',
     price: 0.0,
     estimatedTransit: 'Ready in 24 Hours',
   },
@@ -149,7 +144,6 @@ export interface CheckoutFormData {
   state: string;
   zip: string;
   phone: string;
-  facilityType: 'commercial_dock' | 'commercial_liftgate' | 'residential_liftgate' | 'pickup';
   liftgateRequired: boolean;
   callAhead: boolean;
   deliveryNotes: string;
@@ -162,6 +156,17 @@ interface SavedAddress {
   city: string;
   postalCode?: string;
   addressLine: string;
+}
+
+export interface UserProfileResponse {
+  id: string;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  companyName?: string | null;
+  phone?: string | null;
+  buyerType?: string | null;
+  addresses?: SavedAddress[];
 }
 
 interface PromoDiscount {
@@ -199,7 +204,6 @@ export default function CheckoutPage() {
     state: 'TX',
     zip: '',
     phone: '',
-    facilityType: 'commercial_dock',
     liftgateRequired: false,
     callAhead: true,
     deliveryNotes: '',
@@ -241,7 +245,7 @@ export default function CheckoutPage() {
 
           // Try fetching user profile from API
           try {
-            const profileRes = await apiFetch<any>('/users/profile');
+            const profileRes = await apiFetch<UserProfileResponse>('/users/profile');
             const profile = profileRes?.data;
             if (profile) {
               setFormData((prev) => ({
@@ -285,15 +289,6 @@ export default function CheckoutPage() {
 
     loadUserData();
   }, []);
-
-  // Update liftgate automatic requirement based on facility type
-  const handleFacilityTypeChange = (type: CheckoutFormData['facilityType']) => {
-    setFormData((prev) => ({
-      ...prev,
-      facilityType: type,
-      liftgateRequired: type === 'commercial_liftgate' || type === 'residential_liftgate',
-    }));
-  };
 
   // Switch to saved address
   const handleSavedAddressSelect = (addressId: string) => {
@@ -348,50 +343,56 @@ export default function CheckoutPage() {
   const total = taxableAmount + (activeStep >= 2 ? shippingCost : 0) + taxes;
 
   // ── Field Validation ────────────────────────────────────────────────────────
-  const validateField = (field: keyof CheckoutFormData, value: any): string => {
+  const validateField = (
+    field: keyof CheckoutFormData,
+    value: string | boolean | undefined,
+  ): string => {
+    const strVal = typeof value === 'string' ? value.trim() : '';
     switch (field) {
       case 'email':
-        if (!value || typeof value !== 'string' || !value.trim()) return 'Email address is required';
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) return 'Please enter a valid email address';
+        if (!strVal) return 'Email address is required';
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(strVal)) return 'Please enter a valid email address';
         return '';
       case 'firstName':
-        if (!value || !value.trim()) return 'First name is required';
+        if (!strVal) return 'First name is required';
         return '';
       case 'lastName':
-        if (!value || !value.trim()) return 'Last name is required';
+        if (!strVal) return 'Last name is required';
         return '';
       case 'address':
-        if (!value || !value.trim()) return 'Street address is required for freight delivery';
+        if (!strVal) return 'Street address is required for freight delivery';
         return '';
       case 'city':
-        if (!value || !value.trim()) return 'City is required';
+        if (!strVal) return 'City is required';
         return '';
       case 'state':
-        if (!value || !value.trim()) return 'State is required';
+        if (!strVal) return 'State is required';
         return '';
       case 'zip':
-        if (!value || !value.trim()) return 'ZIP / Postal code is required';
-        if (value.trim().length < 4) return 'Enter a valid ZIP / Postal code';
+        if (!strVal) return 'ZIP / Postal code is required';
+        if (strVal.length < 4) return 'Enter a valid ZIP / Postal code';
         return '';
       case 'phone':
-        if (!value || !value.trim()) return 'Delivery contact phone number is required';
-        if (value.trim().length < 7) return 'Enter a valid phone number with area code';
+        if (!strVal) return 'Delivery contact phone number is required';
+        if (strVal.length < 7) return 'Enter a valid phone number with area code';
         return '';
       default:
         return '';
     }
   };
 
-  const handleInputChange = (field: keyof CheckoutFormData, value: any) => {
+  const handleInputChange = <K extends keyof CheckoutFormData>(
+    field: K,
+    value: CheckoutFormData[K],
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear validation error when user types
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: '' }));
     }
   };
 
   // Validate entire Step 1 (Information)
-  const validateStep1 = (): boolean => {
+  const validateStep1 = (showAlert = true): boolean => {
     const newErrors: Partial<Record<keyof CheckoutFormData, string>> = {};
 
     const emailErr = validateField('email', formData.email);
@@ -421,9 +422,10 @@ export default function CheckoutPage() {
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      toast.error('Please complete all required fields with valid information.');
-      // Scroll to top of the form
-      window.scrollTo({ top: 120, behavior: 'smooth' });
+      if (showAlert) {
+        toast.error('Please complete all required fields with valid information.');
+        window.scrollTo({ top: 100, behavior: 'smooth' });
+      }
       return false;
     }
 
@@ -432,15 +434,15 @@ export default function CheckoutPage() {
 
   // Navigation handlers
   const handleProceedToShipping = () => {
-    if (validateStep1()) {
+    if (validateStep1(true)) {
       setActiveStep(2);
-      window.scrollTo({ top: 80, behavior: 'smooth' });
+      window.scrollTo({ top: 60, behavior: 'smooth' });
     }
   };
 
   const handleProceedToPayment = () => {
     setActiveStep(3);
-    window.scrollTo({ top: 80, behavior: 'smooth' });
+    window.scrollTo({ top: 60, behavior: 'smooth' });
   };
 
   // ── Promo Code Handler ──────────────────────────────────────────────────────
@@ -451,7 +453,6 @@ export default function CheckoutPage() {
     setIsApplyingPromo(true);
     setPromoError(null);
 
-    // Simulate backend coupon verification or check standard promo codes
     setTimeout(() => {
       setIsApplyingPromo(false);
       if (code === 'WELCOME10') {
@@ -520,7 +521,6 @@ export default function CheckoutPage() {
       company: formData.company || undefined,
       phone: formData.phone,
       shippingAddress: fullShippingAddress,
-      facilityType: formData.facilityType,
       shippingMethod: activeShippingMethod.name,
       shippingCost,
       subtotal,
@@ -534,12 +534,10 @@ export default function CheckoutPage() {
     };
 
     try {
-      // Save order snapshot to sessionStorage for the success page
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('last_order', JSON.stringify(orderData));
       }
 
-      // Try creating actual order in backend if user is authenticated
       if (isLoggedIn) {
         try {
           await apiFetch('/orders', {
@@ -559,7 +557,6 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error('[Checkout] Checkout error:', err);
       setIsProcessing(false);
-      // Fallback navigation
       router.push(`/checkout/success?orderId=${orderNumber}&email=${encodeURIComponent(formData.email)}`);
     }
   };
@@ -569,21 +566,6 @@ export default function CheckoutPage() {
     if (!formData.address) return 'Address not provided';
     return `${formData.address}${formData.suite ? ', ' + formData.suite : ''}, ${formData.city}, ${formData.state} ${formData.zip}`;
   }, [formData.address, formData.suite, formData.city, formData.state, formData.zip]);
-
-  const facilityLabel = useMemo(() => {
-    switch (formData.facilityType) {
-      case 'commercial_dock':
-        return 'Commercial Facility (Loading Dock)';
-      case 'commercial_liftgate':
-        return 'Commercial (Liftgate Required)';
-      case 'residential_liftgate':
-        return 'Residential / Limited Access (Liftgate)';
-      case 'pickup':
-        return 'Local Terminal Pickup (Dallas Dock #4)';
-      default:
-        return 'Commercial Dock';
-    }
-  }, [formData.facilityType]);
 
   // If cart is empty
   if (cart.length === 0) {
@@ -609,52 +591,148 @@ export default function CheckoutPage() {
   return (
     <div className="max-w-7xl mx-auto flex flex-col-reverse lg:flex-row min-h-[calc(100vh-64px)]">
       {/* ── Left Column: Checkout Forms ── */}
-      <div className="w-full lg:w-3/5 px-4 sm:px-6 lg:px-12 py-10 bg-white">
-        {/* Breadcrumb Stepper */}
-        <nav aria-label="Checkout Progress" className="flex items-center text-xs font-semibold text-neutral-400 mb-8 select-none">
-          <Link href="/products" className="text-primary hover:underline flex items-center gap-1">
-            Shop
-          </Link>
-          <ChevronRight className="w-3.5 h-3.5 mx-2 text-neutral-300" />
-          
-          <button
-            type="button"
-            onClick={() => setActiveStep(1)}
-            className={`transition-colors cursor-pointer ${
-              activeStep === 1
-                ? 'text-neutral-900 font-bold'
-                : activeStep > 1
-                ? 'text-primary hover:underline font-semibold'
-                : 'text-neutral-400'
-            }`}
-          >
-            Information
-          </button>
-          
-          <ChevronRight className="w-3.5 h-3.5 mx-2 text-neutral-300" />
-          
-          <button
-            type="button"
-            onClick={() => {
-              if (validateStep1()) setActiveStep(2);
-            }}
-            className={`transition-colors cursor-pointer ${
-              activeStep === 2
-                ? 'text-neutral-900 font-bold'
-                : activeStep > 2
-                ? 'text-primary hover:underline font-semibold'
-                : 'text-neutral-400'
-            }`}
-          >
-            Shipping
-          </button>
-          
-          <ChevronRight className="w-3.5 h-3.5 mx-2 text-neutral-300" />
-          
-          <span className={`${activeStep === 3 ? 'text-neutral-900 font-bold' : 'text-neutral-400'}`}>
-            Payment
-          </span>
-        </nav>
+      <div className="w-full lg:w-3/5 px-4 sm:px-6 lg:px-12 py-8 bg-white">
+        
+        {/* ── Modern Premium Checkout Stepper Navigation ── */}
+        <div className="mb-8 pb-6 border-b border-neutral-200">
+          <div className="flex items-center justify-between">
+            {/* Step 1: Information */}
+            <button
+              type="button"
+              onClick={() => setActiveStep(1)}
+              className="flex items-center gap-2.5 text-left group cursor-pointer focus:outline-none"
+            >
+              <span
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  activeStep === 1
+                    ? 'bg-neutral-900 text-white ring-4 ring-neutral-900/15 shadow-sm'
+                    : activeStep > 1
+                    ? 'bg-emerald-500 text-white shadow-xs'
+                    : 'bg-neutral-100 text-neutral-400 border border-neutral-200'
+                }`}
+              >
+                {activeStep > 1 ? <Check className="w-4 h-4 stroke-3" /> : '1'}
+              </span>
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Step 1</p>
+                <p
+                  className={`text-xs font-bold transition-colors ${
+                    activeStep === 1
+                      ? 'text-neutral-900 font-extrabold'
+                      : activeStep > 1
+                      ? 'text-neutral-700 group-hover:text-primary'
+                      : 'text-neutral-400'
+                  }`}
+                >
+                  Information
+                </p>
+              </div>
+            </button>
+
+            {/* Progress Connector Line 1 */}
+            <div className="flex-1 mx-3 sm:mx-4 h-0.5 rounded-full overflow-hidden bg-neutral-200">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  activeStep > 1 ? 'bg-emerald-500 w-full' : 'w-0'
+                }`}
+              />
+            </div>
+
+            {/* Step 2: Shipping */}
+            <button
+              type="button"
+              onClick={() => {
+                if (activeStep > 2 || validateStep1(true)) {
+                  setActiveStep(2);
+                }
+              }}
+              className={`flex items-center gap-2.5 text-left transition-all focus:outline-none ${
+                activeStep >= 2 ? 'cursor-pointer group' : 'cursor-pointer group opacity-75'
+              }`}
+            >
+              <span
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  activeStep === 2
+                    ? 'bg-neutral-900 text-white ring-4 ring-neutral-900/15 shadow-sm'
+                    : activeStep > 2
+                    ? 'bg-emerald-500 text-white shadow-xs'
+                    : 'bg-neutral-100 text-neutral-500 border border-neutral-200 group-hover:border-neutral-400'
+                }`}
+              >
+                {activeStep > 2 ? <Check className="w-4 h-4 stroke-3" /> : '2'}
+              </span>
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Step 2</p>
+                <p
+                  className={`text-xs font-bold transition-colors ${
+                    activeStep === 2
+                      ? 'text-neutral-900 font-extrabold'
+                      : activeStep > 2
+                      ? 'text-neutral-700 group-hover:text-primary'
+                      : 'text-neutral-400'
+                  }`}
+                >
+                  Shipping
+                </p>
+              </div>
+            </button>
+
+            {/* Progress Connector Line 2 */}
+            <div className="flex-1 mx-3 sm:mx-4 h-0.5 rounded-full overflow-hidden bg-neutral-200">
+              <div
+                className={`h-full transition-all duration-300 ${
+                  activeStep > 2 ? 'bg-emerald-500 w-full' : 'w-0'
+                }`}
+              />
+            </div>
+
+            {/* Step 3: Payment */}
+            <button
+              type="button"
+              onClick={() => {
+                if (activeStep === 3) return;
+                if (validateStep1(true)) {
+                  setActiveStep(3);
+                }
+              }}
+              className={`flex items-center gap-2.5 text-left transition-all focus:outline-none ${
+                activeStep === 3 ? 'cursor-default' : 'cursor-pointer group opacity-75'
+              }`}
+            >
+              <span
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  activeStep === 3
+                    ? 'bg-neutral-900 text-white ring-4 ring-neutral-900/15 shadow-sm'
+                    : 'bg-neutral-100 text-neutral-500 border border-neutral-200 group-hover:border-neutral-400'
+                }`}
+              >
+                3
+              </span>
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Step 3</p>
+                <p
+                  className={`text-xs font-bold transition-colors ${
+                    activeStep === 3 ? 'text-neutral-900 font-extrabold' : 'text-neutral-400'
+                  }`}
+                >
+                  Payment
+                </p>
+              </div>
+            </button>
+          </div>
+
+          {/* Mobile Current Step Bar */}
+          <div className="sm:hidden mt-3 pt-2.5 border-t border-neutral-100 flex justify-between items-center text-xs">
+            <span className="font-bold text-neutral-900">
+              {activeStep === 1
+                ? 'Step 1: Contact & Delivery Address'
+                : activeStep === 2
+                ? 'Step 2: Freight Shipping Method'
+                : 'Step 3: Secure Payment'}
+            </span>
+            <span className="text-[11px] text-neutral-400 font-medium">Page {activeStep} of 3</span>
+          </div>
+        </div>
 
         {/* ══════════════════════════════════════════════════════════════════════════
             STEP 1: INFORMATION (Contact & Freight Delivery Address)
@@ -716,59 +794,6 @@ export default function CheckoutPage() {
               </div>
             </section>
 
-            {/* Freight Delivery Facility Type */}
-            <section>
-              <div className="mb-3">
-                <h3 className="text-sm font-bold text-neutral-900 uppercase tracking-wider mb-1">
-                  Destination Facility Capability
-                </h3>
-                <p className="text-xs text-neutral-500">
-                  Select your receiving location capability to ensure appropriate carrier truck dispatch.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {[
-                  {
-                    id: 'commercial_dock',
-                    label: 'Commercial with Loading Dock',
-                    sub: 'Trailer height dock or on-site forklift available',
-                  },
-                  {
-                    id: 'commercial_liftgate',
-                    label: 'Commercial Location (Liftgate Needed)',
-                    sub: 'Ground level storefront or business without dock',
-                  },
-                  {
-                    id: 'residential_liftgate',
-                    label: 'Residential / Limited Access',
-                    sub: 'Home, residential neighborhood, or storage unit',
-                  },
-                  {
-                    id: 'pickup',
-                    label: 'Local Hub Terminal Pickup',
-                    sub: 'Self-pickup at Dallas TX Central Liquidation Terminal',
-                  },
-                ].map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => handleFacilityTypeChange(option.id as any)}
-                    className={`p-3 text-left border rounded-xl transition-all cursor-pointer ${
-                      formData.facilityType === option.id
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary shadow-xs'
-                        : 'border-neutral-200 hover:border-neutral-300 bg-white'
-                    }`}
-                  >
-                    <p className={`text-xs font-bold ${formData.facilityType === option.id ? 'text-primary' : 'text-neutral-900'}`}>
-                      {option.label}
-                    </p>
-                    <p className="text-[11px] text-neutral-500 mt-0.5 line-clamp-1">{option.sub}</p>
-                  </button>
-                ))}
-              </div>
-            </section>
-
             {/* Commercial / Freight Delivery Address */}
             <section className="space-y-4">
               <div className="flex justify-between items-center">
@@ -789,7 +814,7 @@ export default function CheckoutPage() {
                     onChange={(e) => handleSavedAddressSelect(e.target.value)}
                     className="w-full p-2.5 text-xs bg-white border border-neutral-300 rounded-lg focus:ring-1 focus:ring-primary focus:outline-none"
                   >
-                    {savedAddresses.map((addr, idx) => (
+                    {savedAddresses.map((addr) => (
                       <option key={addr.id} value={addr.id}>
                         {addr.addressLine}, {addr.city} {addr.postalCode} ({addr.country})
                       </option>
@@ -856,7 +881,7 @@ export default function CheckoutPage() {
                 {/* Company / Warehouse */}
                 <div className="col-span-1 sm:col-span-2">
                   <label htmlFor="company" className="block text-xs font-bold text-neutral-700 mb-1 uppercase tracking-wider">
-                    Company / Warehouse / Facility Name
+                    Company / Business / Warehouse Name
                   </label>
                   <input
                     id="company"
@@ -1044,24 +1069,11 @@ export default function CheckoutPage() {
                   <div>
                     <p className="font-semibold text-neutral-900">{formattedAddressSummary}</p>
                     {formData.company && (
-                      <p className="text-xs text-neutral-500 mt-0.5">Attn: {formData.company} ({formData.firstName} {formData.lastName})</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">
+                        Attn: {formData.company} ({formData.firstName} {formData.lastName})
+                      </p>
                     )}
                   </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveStep(1)}
-                  className="text-xs text-primary font-bold hover:underline cursor-pointer ml-4 shrink-0"
-                >
-                  Change
-                </button>
-              </div>
-
-              {/* Facility Capability Row */}
-              <div className="flex justify-between items-center p-4">
-                <div className="flex flex-col sm:flex-row sm:gap-6">
-                  <span className="text-neutral-500 font-medium w-20 shrink-0">Facility</span>
-                  <span className="font-semibold text-neutral-900">{facilityLabel}</span>
                 </div>
                 <button
                   type="button"
@@ -1207,7 +1219,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => {
                   setActiveStep(1);
-                  window.scrollTo({ top: 80, behavior: 'smooth' });
+                  window.scrollTo({ top: 60, behavior: 'smooth' });
                 }}
                 className="text-sm font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
               >
@@ -1407,7 +1419,7 @@ export default function CheckoutPage() {
                 type="button"
                 onClick={() => {
                   setActiveStep(2);
-                  window.scrollTo({ top: 80, behavior: 'smooth' });
+                  window.scrollTo({ top: 60, behavior: 'smooth' });
                 }}
                 className="text-sm font-semibold text-primary hover:underline cursor-pointer flex items-center gap-1"
               >
@@ -1437,7 +1449,7 @@ export default function CheckoutPage() {
       </div>
 
       {/* ── Right Column: Order Summary ── */}
-      <div className="w-full lg:w-2/5 bg-neutral-50 px-4 sm:px-6 lg:px-12 py-10 border-l border-neutral-200 lg:min-h-full">
+      <div className="w-full lg:w-2/5 bg-neutral-50 px-4 sm:px-6 lg:px-12 py-8 border-l border-neutral-200 lg:min-h-full">
         <div className="sticky top-10 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-neutral-900">
@@ -1449,23 +1461,19 @@ export default function CheckoutPage() {
           </div>
 
           {/* Cart Items List */}
-          <div className="space-y-3.5 max-h-[360px] overflow-y-auto pr-1">
+          <div className="space-y-3.5 max-h-90 overflow-y-auto pr-1">
             {cart.map((item) => {
               const imgSrc = item.img || '/catergories/electronics.png';
               return (
                 <div key={item.id} className="flex gap-3.5 items-center bg-white p-3 rounded-2xl border border-neutral-200/80 shadow-2xs">
                   <div className="relative w-16 h-16 bg-neutral-100 border border-neutral-200 rounded-xl overflow-hidden shrink-0">
-                    {imgSrc.startsWith('http') ? (
-                      <img src={imgSrc} alt={item.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <Image
-                        src={imgSrc}
-                        alt={item.title}
-                        fill
-                        className="object-cover rounded-xl"
-                        sizes="(max-width: 768px) 100vw, 80px"
-                      />
-                    )}
+                    <Image
+                      src={imgSrc}
+                      alt={item.title}
+                      fill
+                      className="object-cover rounded-xl"
+                      sizes="64px"
+                    />
                     <span className="absolute top-1 right-1 w-5 h-5 bg-neutral-900 text-white rounded-full flex items-center justify-center text-[10px] font-bold z-10 shadow-xs">
                       {item.qty}
                     </span>

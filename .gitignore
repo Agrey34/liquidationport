@@ -121,6 +121,12 @@ htmlcov/
 test-results/
 playwright-report/
 blob-report/
+apps/api/test/
+apps/web/app/test-api/
+*.spec.ts
+*.test.ts
+*.spec.js
+*.test.js
 
 # ================================
 # Logs & Debugging

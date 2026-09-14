@@ -6,7 +6,12 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, CheckAccountDto } from './dto/register.dto';
+import {
+  CustomerRegisterDto,
+  AdminRegisterDto,
+  RegisterDto,
+  CheckAccountDto,
+} from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -23,12 +28,32 @@ export class AuthController {
   }
 
   /**
-   * Secure user registration endpoint.
-   * Checks database unique constraints first. Aborts with HTTP 409 if duplicate found.
+   * Customer / Wholesale Buyer Registration
+   * Explicitly assigns and persists the "BUYER" role.
+   */
+  @Post('customer/register')
+  @HttpCode(HttpStatus.CREATED)
+  async registerCustomer(@Body() dto: CustomerRegisterDto) {
+    return this.authService.registerCustomer(dto);
+  }
+
+  /**
+   * Legacy register endpoint (alias to customer registration for backwards compatibility)
    */
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto);
+    return this.authService.registerCustomer(dto);
+  }
+
+  /**
+   * Administrator Registration
+   * Requires structural protection / authorization passcode.
+   * Prevents unauthorized escalation to the "ADMIN" role.
+   */
+  @Post('admin/register')
+  @HttpCode(HttpStatus.CREATED)
+  async registerAdmin(@Body() dto: AdminRegisterDto) {
+    return this.authService.registerAdmin(dto);
   }
 }

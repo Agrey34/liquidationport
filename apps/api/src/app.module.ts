@@ -25,6 +25,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { SettingsModule } from './modules/settings/settings.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { GuestSessionsModule } from './modules/guest-sessions/guest-sessions.module';
+import { TasksModule } from './tasks/tasks.module';
 
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
@@ -89,6 +91,10 @@ import { validate } from './config/env.validation';
     BackupModule,
     // Hybrid Storage (Cloudflare R2 + Supabase Storage)
     StorageModule,
+    // Server-backed guest sessions (replaces localStorage cart/wishlist)
+    GuestSessionsModule,
+    // Background scheduled tasks (cleanup, outbox processor)
+    TasksModule,
   ],
   controllers: [],
   providers: [

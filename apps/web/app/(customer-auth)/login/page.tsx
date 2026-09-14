@@ -41,18 +41,16 @@ function CustomerLoginForm() {
         return;
       }
 
-      // Check user role for redirection
+      // SECURITY: Role from app_metadata only (server-set). user_metadata is user-editable
+      // and MUST NOT be used for authorization decisions.
       const user = data.user;
-      const role = user?.user_metadata?.role || user?.app_metadata?.role;
+      const role = user?.app_metadata?.role;
 
-      if (role === 'admin') {
-        const lastTab = localStorage.getItem('admin_last_tab');
-        if (lastTab && lastTab.startsWith('/admin') && !lastTab.startsWith('/admin-login')) {
-          window.location.href = lastTab;
-        } else {
-          window.location.href = '/admin';
-        }
-      } else if (next && next.startsWith('/')) {
+      if (role === 'admin' || role === 'super_admin') {
+        // Redirect admins to admin dashboard — do NOT use client-side storage to determine path
+        window.location.href = '/admin';
+      } else if (next && next.startsWith('/') && !next.startsWith('/admin')) {
+        // Only follow non-admin 'next' params for customer navigation
         window.location.href = next;
       } else {
         window.location.href = '/';
@@ -73,7 +71,7 @@ function CustomerLoginForm() {
   };
 
   return (
-    <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl border border-neutral-200/90 overflow-hidden p-6 sm:p-7 transition-all">
+    <div className="max-w-105 bg-white rounded-2xl shadow-2xl border border-neutral-200/90 overflow-hidden p-6 sm:p-7 transition-all">
       {/* Header with Brand Logo & Close Icon */}
       <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
         <Link href="/" className="flex items-center gap-1 group">
@@ -140,9 +138,9 @@ function CustomerLoginForm() {
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? (
-                <Eye className="w-5 h-5 stroke-[2]" />
+                <Eye className="w-5 h-5 stroke-2" />
               ) : (
-                <EyeOff className="w-5 h-5 stroke-[2]" />
+                <EyeOff className="w-5 h-5 stroke-2" />
               )}
             </button>
           </div>
@@ -183,7 +181,7 @@ export default function CustomerLoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl border border-neutral-200/90 p-8 flex justify-center items-center h-64">
+        <div className="w-full max-w-105 bg-white rounded-2xl shadow-2xl border border-neutral-200/90 p-8 flex justify-center items-center h-64">
           <div className="w-8 h-8 border-2 border-[#18113c]/30 border-t-[#18113c] rounded-full animate-spin" />
         </div>
       }

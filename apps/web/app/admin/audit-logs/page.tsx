@@ -122,7 +122,7 @@ export default function AuditLogsPage() {
       </div>
 
       <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto min-h-[400px]">
+        <div className="overflow-x-auto min-h-100">
           <table className="w-full text-left text-sm whitespace-nowrap">
             <thead className="bg-neutral-50 border-b border-neutral-200 text-neutral-500 font-medium">
               <tr>
@@ -185,7 +185,7 @@ export default function AuditLogsPage() {
                     </td>
                     <td className="px-6 py-4">
                        <div className="text-xs text-neutral-600 font-mono">{log.ipAddress || 'Unknown IP'}</div>
-                       <div className="text-xs text-neutral-400 truncate max-w-[150px]" title={log.userAgent || ''}>
+                       <div className="text-xs text-neutral-400 truncate max-w-37.5" title={log.userAgent || ''}>
                           {log.userAgent || 'Unknown Device'}
                        </div>
                     </td>

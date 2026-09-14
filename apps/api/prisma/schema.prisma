@@ -94,6 +94,7 @@ model Product {
   variants      ProductVariant[]
   category      Category?        @relation(fields: [categoryId], references: [id])
   wishlistItems WishlistItem[]
+  guestWishlistItems GuestWishlistItem[]
 
   @@index([slug])
   @@index([categoryId])
@@ -131,6 +132,8 @@ model ProductVariant {
   inventory    Inventory?
   orderItems   OrderItem[]
   product      Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  guestCartItems    GuestCartItem[]
+  inventoryMovements InventoryMovement[]
 
   @@index([productId])
   @@map("product_variants")
@@ -411,6 +414,8 @@ enum OrderStatus {
   shipped
   delivered
   cancelled
+  return_requested
+  refunded
 }
 
 enum PaymentStatus {
@@ -433,3 +438,135 @@ enum NotificationType {
   system
   promotion
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GUEST SESSION INFRASTRUCTURE
+// Server-backed guest state: replaces localStorage cart/wishlist blobs.
+// A token hash is stored (never the raw token) so a database breach doesn't
+// expose live session tokens.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model GuestSession {
+  id          String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tokenHash   String       @unique @map("token_hash")
+  expiresAt   DateTime     @map("expires_at") @db.Timestamptz()
+  lastSeenAt  DateTime     @default(now()) @map("last_seen_at") @db.Timestamptz()
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt   DateTime     @default(now()) @map("updated_at") @db.Timestamptz()
+  guestCart   GuestCart?
+  guestWishlist GuestWishlist?
+
+  @@index([tokenHash])
+  @@index([expiresAt])
+  @@map("guest_sessions")
+}
+
+model GuestCart {
+  id             String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  guestSessionId String          @unique @map("guest_session_id") @db.Uuid
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz()
+  session        GuestSession    @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  items          GuestCartItem[]
+
+  @@map("guest_carts")
+}
+
+model GuestCartItem {
+  id          String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  guestCartId String         @map("guest_cart_id") @db.Uuid
+  variantId   String         @map("variant_id") @db.Uuid
+  quantity    Int            @default(1)
+  addedAt     DateTime       @default(now()) @map("added_at") @db.Timestamptz()
+  cart        GuestCart      @relation(fields: [guestCartId], references: [id], onDelete: Cascade)
+  variant     ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([guestCartId, variantId])
+  @@index([guestCartId])
+  @@map("guest_cart_items")
+}
+
+model GuestWishlist {
+  id             String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  guestSessionId String              @unique @map("guest_session_id") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz()
+  session        GuestSession        @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  items          GuestWishlistItem[]
+
+  @@map("guest_wishlists")
+}
+
+model GuestWishlistItem {
+  id              String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  guestWishlistId String        @map("guest_wishlist_id") @db.Uuid
+  productId       String        @map("product_id") @db.Uuid
+  addedAt         DateTime      @default(now()) @map("added_at") @db.Timestamptz()
+  wishlist        GuestWishlist @relation(fields: [guestWishlistId], references: [id], onDelete: Cascade)
+  product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([guestWishlistId, productId])
+  @@index([guestWishlistId])
+  @@map("guest_wishlist_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMMERCE INTEGRITY INFRASTRUCTURE
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Audit trail for every stock quantity change.
+/// Provides full traceability: what changed, by how much, why, who did it.
+model InventoryMovement {
+  id            String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  variantId     String         @map("variant_id") @db.Uuid
+  /// Positive = stock increase; Negative = stock decrease
+  quantityChange Int           @map("quantity_change")
+  type          String
+  /// e.g. 'order', 'manual', 'return', 'import', 'damage'
+  referenceType String?        @map("reference_type")
+  referenceId   String?        @map("reference_id") @db.Uuid
+  note          String?
+  /// Admin or system actor who initiated the change
+  actorId       String?        @map("actor_id") @db.Uuid
+  createdAt     DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+  variant       ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([variantId])
+  @@index([referenceId])
+  @@index([createdAt(sort: Desc)])
+  @@map("inventory_movements")
+}
+
+/// Prevents duplicate order/payment processing.
+/// Checked at the start of checkout and payment webhook handling.
+model IdempotencyKey {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  key          String    @unique
+  userId       String?   @map("user_id") @db.Uuid
+  responseBody Json?     @map("response_body")
+  statusCode   Int?      @map("status_code")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz()
+
+  @@index([key])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+/// Transactional outbox for reliable async event delivery.
+/// Events are written inside DB transactions so they're never lost even if
+/// the notification service crashes before delivery.
+model OutboxEvent {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  eventType       String    @map("event_type")
+  payload         Json
+  status          String    @default("pending")
+  attempts        Int       @default(0)
+  lastAttemptedAt DateTime? @map("last_attempted_at") @db.Timestamptz()
+  processedAt     DateTime? @map("processed_at") @db.Timestamptz()
+  error           String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([status, createdAt])
+  @@index([eventType])
+  @@map("outbox_events")
+}
+
