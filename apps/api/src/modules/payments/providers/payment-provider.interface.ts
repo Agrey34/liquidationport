@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 export interface PaymentIntentOptions {
   amount: number;
   currency: string;
@@ -17,7 +19,7 @@ export interface ParsedWebhookEvent {
   providerPaymentId?: string;
   status: 'succeeded' | 'failed' | 'other';
   amount?: number;
-  rawPayload: any;
+  rawPayload: Prisma.InputJsonValue;
 }
 
 export interface IPaymentProvider {

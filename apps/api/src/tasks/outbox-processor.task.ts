@@ -3,13 +3,43 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../database/prisma.service';
 import { NotificationType } from '@prisma/client';
 
+interface ClaimedOutboxEvent {
+  id: string;
+  eventType: string;
+  payload: unknown;
+  attempts: number;
+}
+
+interface OrderCreatedPayload {
+  orderId: string;
+  userId?: string;
+  total?: number;
+}
+
+interface OrderPaidPayload {
+  orderId: string;
+  userId?: string;
+  amount?: number;
+}
+
+interface OrderStatusChangedPayload {
+  orderId: string;
+  userId?: string;
+  status: string;
+}
+
+function isRecord(val: unknown): val is Record<string, unknown> {
+  return typeof val === 'object' && val !== null && !Array.isArray(val);
+}
+
 /**
  * OutboxProcessorTask
  *
  * Implements the Transactional Outbox pattern.
- * Regularly processes pending events from `outbox_events` to ensure
- * asynchronous side effects (notifications, emails, external webhooks)
- * execute reliably without blocking the critical database transaction.
+ * Concurrency-safe across multiple node instances using PostgreSQL row-level
+ * locks (`FOR UPDATE SKIP LOCKED`).
+ * Includes exponential backoff for retried events and recovery of stalled
+ * processing events older than 5 minutes.
  */
 @Injectable()
 export class OutboxProcessorTask {
@@ -24,101 +54,141 @@ export class OutboxProcessorTask {
   @Cron('*/10 * * * * *')
   async processOutboxEvents(): Promise<void> {
     if (this.isRunning) {
-      return; // Prevent overlapping runs
+      return; // In-process throttle guard
     }
 
     this.isRunning = true;
 
     try {
-      // Fetch up to 20 pending or retryable events
-      const events = await this.prisma.outboxEvent.findMany({
-        where: {
-          status: 'pending',
-          attempts: { lt: 3 },
-        },
-        orderBy: { createdAt: 'asc' },
-        take: 20,
-      });
+      // Concurrency-safe atomic claim:
+      // Locks up to 20 candidate rows skipping already-locked rows by other worker instances.
+      // Simultaneously transitions status to 'processing' and increments attempts.
+      // Uses withRetry to handle transient Supabase pooler socket reconnects gracefully.
+      const claimedEvents = await this.prisma.withRetry(() =>
+        this.prisma.$queryRaw<ClaimedOutboxEvent[]>`
+          UPDATE outbox_events
+          SET status = 'processing',
+              last_attempted_at = NOW(),
+              attempts = attempts + 1
+          WHERE id IN (
+            SELECT id
+            FROM outbox_events
+            WHERE (
+              status = 'pending'
+              OR (status = 'processing' AND last_attempted_at < NOW() - INTERVAL '5 minutes')
+            )
+            AND attempts < 3
+            AND (
+              last_attempted_at IS NULL
+              OR last_attempted_at < NOW() - (power(2, attempts) * INTERVAL '15 seconds')
+            )
+            ORDER BY created_at ASC
+            LIMIT 20
+            FOR UPDATE SKIP LOCKED
+          )
+          RETURNING id, event_type AS "eventType", payload, attempts;
+        `,
+      );
 
-      if (events.length === 0) {
+      if (!claimedEvents || claimedEvents.length === 0) {
         return;
       }
 
-      for (const event of events) {
+      for (const event of claimedEvents) {
         await this.handleEvent(event);
       }
     } catch (err: unknown) {
-      this.logger.error('Error in outbox processing cycle', String(err));
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('P1001') || msg.includes("Can't reach database server")) {
+        this.logger.warn(
+          `[Transient Pooler Notice] Outbox processing cycle deferred until pooler socket reconnects: ${msg.slice(0, 100)}`,
+        );
+      } else {
+        this.logger.error('Error in outbox processing cycle', msg);
+      }
     } finally {
       this.isRunning = false;
     }
   }
 
-  private async handleEvent(event: {
-    id: string;
-    eventType: string;
-    payload: any;
-    attempts: number;
-  }): Promise<void> {
+  private async handleEvent(event: ClaimedOutboxEvent): Promise<void> {
     try {
-      // Mark as processing
-      await this.prisma.outboxEvent.update({
-        where: { id: event.id },
-        data: {
-          status: 'processing',
-          lastAttemptedAt: new Date(),
-          attempts: { increment: 1 },
-        },
-      });
-
       // Dispatch based on event type
       switch (event.eventType) {
         case 'ORDER_CREATED':
-          await this.processOrderCreated(event.payload);
+          if (isRecord(event.payload) && typeof event.payload['orderId'] === 'string') {
+            const p: OrderCreatedPayload = {
+              orderId: event.payload['orderId'],
+              userId: typeof event.payload['userId'] === 'string' ? event.payload['userId'] : undefined,
+              total: typeof event.payload['total'] === 'number' ? event.payload['total'] : undefined,
+            };
+            await this.processOrderCreated(p);
+          }
           break;
+
         case 'ORDER_PAID':
-          await this.processOrderPaid(event.payload);
+          if (isRecord(event.payload) && typeof event.payload['orderId'] === 'string') {
+            const p: OrderPaidPayload = {
+              orderId: event.payload['orderId'],
+              userId: typeof event.payload['userId'] === 'string' ? event.payload['userId'] : undefined,
+              amount: typeof event.payload['amount'] === 'number' ? event.payload['amount'] : undefined,
+            };
+            await this.processOrderPaid(p);
+          }
           break;
+
         case 'ORDER_STATUS_CHANGED':
-          await this.processOrderStatusChanged(event.payload);
+          if (
+            isRecord(event.payload) &&
+            typeof event.payload['orderId'] === 'string' &&
+            typeof event.payload['status'] === 'string'
+          ) {
+            const p: OrderStatusChangedPayload = {
+              orderId: event.payload['orderId'],
+              userId: typeof event.payload['userId'] === 'string' ? event.payload['userId'] : undefined,
+              status: event.payload['status'],
+            };
+            await this.processOrderStatusChanged(p);
+          }
           break;
+
         default:
           this.logger.warn(`Unknown outbox event type: ${event.eventType}`);
           break;
       }
 
       // Mark completed
-      await this.prisma.outboxEvent.update({
-        where: { id: event.id },
-        data: {
-          status: 'completed',
-          processedAt: new Date(),
-          error: null,
-        },
-      });
+      await this.prisma.withRetry(() =>
+        this.prisma.outboxEvent.update({
+          where: { id: event.id },
+          data: {
+            status: 'completed',
+            processedAt: new Date(),
+            error: null,
+          },
+        }),
+      );
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : String(err);
       this.logger.error(
-        `Failed to process outbox event ${event.id} (attempt ${event.attempts + 1}): ${errorMessage}`,
+        `Failed to process outbox event ${event.id} (attempt ${event.attempts}): ${errorMessage}`,
       );
 
-      const nextStatus = event.attempts + 1 >= 3 ? 'failed' : 'pending';
+      const nextStatus = event.attempts >= 3 ? 'failed' : 'pending';
 
-      await this.prisma.outboxEvent.update({
-        where: { id: event.id },
-        data: {
-          status: nextStatus,
-          error: errorMessage,
-        },
-      });
+      await this.prisma.withRetry(() =>
+        this.prisma.outboxEvent.update({
+          where: { id: event.id },
+          data: {
+            status: nextStatus,
+            error: errorMessage.slice(0, 500),
+          },
+        }),
+      );
     }
   }
 
-  private async processOrderCreated(payload: {
-    orderId: string;
-    userId?: string;
-    total: number;
-  }): Promise<void> {
+  private async processOrderCreated(payload: OrderCreatedPayload): Promise<void> {
     if (!payload.userId) return;
 
     await this.prisma.notification.create({
@@ -131,11 +201,7 @@ export class OutboxProcessorTask {
     });
   }
 
-  private async processOrderPaid(payload: {
-    orderId: string;
-    userId?: string;
-    amount: number;
-  }): Promise<void> {
+  private async processOrderPaid(payload: OrderPaidPayload): Promise<void> {
     if (!payload.userId) return;
 
     await this.prisma.notification.create({
@@ -148,11 +214,7 @@ export class OutboxProcessorTask {
     });
   }
 
-  private async processOrderStatusChanged(payload: {
-    orderId: string;
-    userId?: string;
-    status: string;
-  }): Promise<void> {
+  private async processOrderStatusChanged(payload: OrderStatusChangedPayload): Promise<void> {
     if (!payload.userId) return;
 
     let notificationType: NotificationType = NotificationType.system;

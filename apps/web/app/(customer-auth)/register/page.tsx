@@ -84,18 +84,27 @@ export default function CustomerRegisterPage() {
             buyerType: 'Retail Buyer',
           }),
         });
-      } catch (regErr: any) {
-        if (
-          regErr?.status === 409 ||
-          regErr?.data?.status === 'error' ||
+      } catch (regErr: unknown) {
+        const isConflict =
           isAccountConflictError(regErr) ||
-          regErr?.message?.toLowerCase().includes('already associated') ||
-          regErr?.message?.toLowerCase().includes('already registered')
-        ) {
+          (regErr instanceof ApiError && regErr.status === 409);
+
+        if (isConflict) {
+          let conflictMsg = 'This email or phone number is already associated with an account.';
+          let conflictField: string | undefined;
+
+          if (regErr instanceof ApiError) {
+            conflictField = regErr.field;
+            if (typeof regErr.data === 'object' && regErr.data !== null && 'message' in regErr.data) {
+              const msg = (regErr.data as { message?: unknown }).message;
+              if (typeof msg === 'string') conflictMsg = msg;
+            }
+          }
+
           setAccountConflict({
             isConflict: true,
-            message: regErr?.data?.message || 'This email or phone number is already associated with an account.',
-            conflictField: regErr?.data?.conflictField,
+            message: conflictMsg,
+            conflictField,
           });
           setIsLoading(false);
           return;
@@ -133,9 +142,19 @@ export default function CustomerRegisterPage() {
     } catch (err: unknown) {
       console.error('Registration error:', err);
       if (isAccountConflictError(err)) {
+        let conflictMsg = 'This email or phone number is already associated with an account.';
+        if (
+          err instanceof ApiError &&
+          typeof err.data === 'object' &&
+          err.data !== null &&
+          'message' in err.data &&
+          typeof (err.data as { message?: unknown }).message === 'string'
+        ) {
+          conflictMsg = (err.data as { message: string }).message;
+        }
         setAccountConflict({
           isConflict: true,
-          message: (err instanceof ApiError && err.data?.message) || 'This email or phone number is already associated with an account.',
+          message: conflictMsg,
         });
       } else {
         setError(getCleanErrorMessage(err, 'Registration failed. Please try again.'));

@@ -43,7 +43,7 @@ export default function CustomerOrdersPage() {
         if (isMounted && res?.data) {
           setOrders(Array.isArray(res.data) ? res.data : []);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load user orders:', err);
         if (isMounted) setError('Unable to load orders at this moment.');
       } finally {

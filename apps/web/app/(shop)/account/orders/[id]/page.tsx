@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Package, Truck, CheckCircle2, Clock, Printer, AlertCircle, MapPin, CreditCard, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Package, Truck, CheckCircle2, Printer, AlertCircle, MapPin, CreditCard, ShieldCheck } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { getCleanErrorMessage } from '@/lib/error-utils';
 
@@ -78,7 +78,7 @@ export default function CustomerOrderDetailsPage({
         if (isMounted && res?.data) {
           setOrder(res.data);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load order:', err);
         if (isMounted) {
           setError(getCleanErrorMessage(err, 'Order not found or you do not have permission to view it.'));
@@ -284,7 +284,7 @@ export default function CustomerOrderDetailsPage({
                     >
                       <CheckCircle2 className="w-5 h-5" />
                     </div>
-                    <span className="text-[11px] font-bold text-neutral-900 text-center max-w-[70px]">
+                    <span className="text-[11px] font-bold text-neutral-900 text-center max-w-17.5">
                       Order Placed
                     </span>
                   </div>
@@ -301,7 +301,7 @@ export default function CustomerOrderDetailsPage({
                       <Package className="w-5 h-5" />
                     </div>
                     <span
-                      className={`text-[11px] font-bold text-center max-w-[70px] ${
+                      className={`text-[11px] font-bold text-center max-w-17.5 ${
                         activeStep >= 2 ? 'text-neutral-900' : 'text-neutral-400'
                       }`}
                     >
@@ -321,7 +321,7 @@ export default function CustomerOrderDetailsPage({
                       <Truck className="w-5 h-5" />
                     </div>
                     <span
-                      className={`text-[11px] font-bold text-center max-w-[70px] ${
+                      className={`text-[11px] font-bold text-center max-w-17.5 ${
                         activeStep >= 3 ? 'text-neutral-900' : 'text-neutral-400'
                       }`}
                     >
@@ -341,7 +341,7 @@ export default function CustomerOrderDetailsPage({
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <span
-                      className={`text-[11px] font-bold text-center max-w-[70px] ${
+                      className={`text-[11px] font-bold text-center max-w-17.5 ${
                         activeStep >= 4 ? 'text-neutral-900' : 'text-neutral-400'
                       }`}
                     >

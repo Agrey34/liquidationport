@@ -24,6 +24,19 @@ export const ASSET_FOLDER_MAP: Record<string, string> = {
   marketing: 'marketing',
 };
 
+interface AwsError {
+  name?: string;
+  message?: string;
+  stack?: string;
+  $metadata?: {
+    httpStatusCode?: number;
+  };
+}
+
+function isAwsError(err: unknown): err is AwsError {
+  return typeof err === 'object' && err !== null;
+}
+
 @Injectable()
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
@@ -137,24 +150,33 @@ export class StorageService implements OnModuleInit {
    *
    * NOTE: R2 / S3 has NO real folder concept — a "folder" only becomes
    * visible once at least one object with that prefix key has been uploaded.
+   *
+   * Verified upon boot: ensures the R2 public media bucket exists and
+   * pre-seeds the top-level folder structure (products/, categories/, marketing/).
    */
   async ensureR2BucketExists(): Promise<void> {
     // 1. Ensure the bucket itself exists
     try {
       await this.r2Client.send(new HeadBucketCommand({ Bucket: this.r2BucketName }));
       this.logger.log(`✅ Cloudflare R2 bucket '${this.r2BucketName}' verified.`);
-    } catch (err: any) {
-      if (err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) {
+    } catch (err: unknown) {
+      const awsErr = isAwsError(err) ? err : undefined;
+      const statusCode = awsErr?.$metadata?.httpStatusCode;
+      const errName = awsErr?.name;
+      const errMsg = err instanceof Error ? err.message : String(err);
+      if (errName === 'NotFound' || statusCode === 404) {
         this.logger.warn(`R2 bucket '${this.r2BucketName}' not found — creating now...`);
         try {
           await this.r2Client.send(new CreateBucketCommand({ Bucket: this.r2BucketName }));
           this.logger.log(`✅ Created Cloudflare R2 bucket '${this.r2BucketName}'.`);
-        } catch (createErr: any) {
-          this.logger.error(`Failed to create R2 bucket: ${createErr.message}`, createErr.stack);
+        } catch (createErr: unknown) {
+          const createMsg = createErr instanceof Error ? createErr.message : String(createErr);
+          const createStack = createErr instanceof Error ? createErr.stack : undefined;
+          this.logger.error(`Failed to create R2 bucket: ${createMsg}`, createStack);
           return; // Cannot seed folders if bucket creation failed
         }
       } else {
-        this.logger.warn(`Could not verify R2 bucket (network/credentials issue): ${err.message}`);
+        this.logger.warn(`Could not verify R2 bucket (network/credentials issue): ${errMsg}`);
         return;
       }
     }
@@ -184,8 +206,9 @@ export class StorageService implements OnModuleInit {
             }),
           );
           this.logger.log(`📁 Created R2 folder placeholder: ${folder}/`);
-        } catch (putErr: any) {
-          this.logger.warn(`Could not seed R2 folder '${folder}/': ${putErr.message}`);
+        } catch (putErr: unknown) {
+          const putMsg = putErr instanceof Error ? putErr.message : String(putErr);
+          this.logger.warn(`Could not seed R2 folder '${folder}/': ${putMsg}`);
         }
       }
     }
@@ -244,9 +267,11 @@ export class StorageService implements OnModuleInit {
 
     try {
       await this.r2Client.send(command);
-    } catch (err: any) {
-      this.logger.error(`Cloudflare R2 upload failed: ${err.message}`, err.stack);
-      throw new Error(`Failed to upload to Cloudflare R2: ${err.message}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Cloudflare R2 upload failed: ${errMsg}`, errStack);
+      throw new Error(`Failed to upload to Cloudflare R2: ${errMsg}`);
     }
 
     // Build the public URL — either through relative API proxy or external CDN
@@ -294,9 +319,11 @@ export class StorageService implements OnModuleInit {
 
     try {
       await this.supabaseS3Client.send(command);
-    } catch (err: any) {
-      this.logger.error(`Supabase Storage invoice upload failed: ${err.message}`, err.stack);
-      throw new Error(`Failed to upload invoice to Supabase Storage: ${err.message}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Supabase Storage invoice upload failed: ${errMsg}`, errStack);
+      throw new Error(`Failed to upload invoice to Supabase Storage: ${errMsg}`);
     }
 
     const internalPath = `${this.customerVaultBucket}/${key}`;
@@ -333,9 +360,11 @@ export class StorageService implements OnModuleInit {
 
     try {
       await this.supabaseS3Client.send(command);
-    } catch (err: any) {
-      this.logger.error(`Supabase avatar upload failed: ${err.message}`, err.stack);
-      throw new Error(`Failed to upload avatar: ${err.message}`);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const errStack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`Supabase avatar upload failed: ${errMsg}`, errStack);
+      throw new Error(`Failed to upload avatar: ${errMsg}`);
     }
 
     const rawSupabaseUrl = this.configService.get<string>('SUPABASE_URL') || '';
@@ -366,7 +395,7 @@ export class StorageService implements OnModuleInit {
    * Stream a public media object directly from Cloudflare R2.
    * Used by GET /shop/media/:folder/:file proxy endpoint.
    */
-  async getR2Object(key: string): Promise<{ body: any; contentType?: string; contentLength?: number }> {
+  async getR2Object(key: string): Promise<{ body: unknown; contentType?: string; contentLength?: number }> {
     const command = new GetObjectCommand({
       Bucket: this.r2BucketName,
       Key: key,

@@ -1,12 +1,27 @@
 import { Injectable, OnModuleInit, INestApplication, Logger } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ override: true });
+
+interface PrismaErrorWithCode {
+  code?: string;
+  message?: string;
+}
+
+function isPrismaErrorWithCode(err: unknown): err is PrismaErrorWithCode {
+  return typeof err === 'object' && err !== null && 'code' in err;
+}
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
   private readonly logger = new Logger(PrismaService.name);
 
   constructor() {
-    super();
+    const url = process.env.SUPABASE_DATABASE_URL;
+    super({
+      datasources: url ? { db: { url } } : undefined,
+    });
   }
 
   async onModuleInit() {
@@ -21,19 +36,21 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
     while (true) {
       try {
         return await operation();
-      } catch (error: any) {
+      } catch (error: unknown) {
         attempts++;
+        const code = isPrismaErrorWithCode(error) ? error.code : undefined;
         const isConnectionError =
-          error?.code &&
-          ['P1001', 'P1002', 'P1008', 'P1017'].includes(error.code);
+          typeof code === 'string' &&
+          ['P1001', 'P1002', 'P1008', 'P1017'].includes(code);
 
         if (!isConnectionError || attempts > maxRetries) {
           throw error;
         }
 
-        const delay = attempts * 300;
+        const jitter = Math.floor(Math.random() * 100);
+        const delay = attempts * 300 + jitter;
         this.logger.warn(
-          `[Transient DB Connectivity Notice - ${error.code}] Retrying database operation (Attempt ${attempts}/${maxRetries}) in ${delay}ms...`,
+          `[Transient DB Connectivity Notice - ${code}] Retrying database operation (Attempt ${attempts}/${maxRetries}) in ${delay}ms...`,
         );
         await new Promise((res) => setTimeout(res, delay));
       }

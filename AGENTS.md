@@ -361,3 +361,38 @@ When generating code:
 **If you are unsure about a business rule, prioritize Data Integrity and Security.**
 **Reference the provided markdown files (`API DESIGN.md`, `db.md`, etc.) before making architectural decisions.**
 **Remember: You are building a Modular Monorepo with Hybrid Supabase + NestJS architecture. Keep shared code minimal and secure.**
+
+
+# Project Coding Rules
+
+## 1. Tailwind CSS Best Practices
+
+- **Use Canonical Utility Scale:** Avoid using arbitrary values like `-[70px]`, `-[300px]`, or `-[190px]` unless absolutely necessary. Check the configuration scale or compute spacing based on standard steps (e.g., use `max-w-17.5` instead of `max-w-[70px]`, `w-75` instead of `w-[300px]`, `min-h-47.5` or `min-h-48` instead of `min-h-[190px]`).
+- **No Layout Conflicts:** Do not assign conflicting display utilities to the same element. Never use `block` and `flex` together on the same element.
+
+## 2. TypeScript & Code Hygiene
+
+- **Never use `any`:** Never introduce `as any`.
+- **No ts-ignore:** Never use `@ts-ignore`. Never use `@ts-expect-error` unless explicitly justified.
+- **Type Safety:** Prefer exact types, unions, generics, DTOs, Prisma-generated types, or `unknown`.
+- **External Data:** Never guess the shape of external data. Inspect the source/type definition before choosing a type.
+- **No Unused Variables:** Always ensure all assigned variables, parameters, and imports are actively used.
+
+## 3. Error Handling
+
+- Always type caught errors as `unknown`:
+  ```typescript
+  catch (error: unknown)
+  ```
+- **Handling & Logging:** If an error is caught in a `catch` block, make sure to log it or handle it. If it must be intentionally ignored, prepend it with an underscore (e.g., `_error: unknown`) or omit it entirely if supported.
+
+## 4. Before Completing Any Task
+
+Always:
+
+1. Run TypeScript type checking.
+2. Run ESLint.
+3. Run relevant tests.
+4. Search changed files for `any`.
+5. Fix all newly introduced type errors.
+6. Only then report the task as complete.

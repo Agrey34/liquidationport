@@ -1,4 +1,4 @@
-import { Controller, Get, HttpStatus, Res, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { PrismaService } from '../../database/prisma.service';
 

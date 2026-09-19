@@ -69,9 +69,9 @@ export class PaymentsService {
   }
 
   async handleWebhook(req: RawBodyRequest<Request>, signature: string) {
-    // 1. Verify signature and parse the webhook via provider
+    const rawPayload = req.rawBody ?? (typeof req.body === 'string' ? req.body : Buffer.isBuffer(req.body) ? req.body : undefined);
     const event = await this.stripeProvider.verifyWebhook(
-      req.rawBody || (req.body as any),
+      rawPayload,
       signature,
     );
 

@@ -33,6 +33,8 @@ interface ApiProduct {
   id: string;
   name: string;
   slug: string;
+  sku?: string;
+  status?: string;
   description?: string | null;
   price: string | number;
   stock: number;
@@ -202,7 +204,7 @@ export default function ProductsPage() {
           ? (res.data as unknown as { data: ApiProduct[] }).data
           : (Array.isArray(res) ? (res as ApiProduct[]) : []));
 
-      const mapped: Product[] = rawList.map((p: any) => ({
+      const mapped: Product[] = rawList.map((p: ApiProduct) => ({
         id: p.id,
         name: p.name,
         sku: p.sku || p.variants?.[0]?.sku || p.slug?.toUpperCase() || 'SKU-PENDING',

@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '../../../lib/supabase/server';
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
     const supabase = await createClient();
     await supabase.auth.signOut();
     revalidatePath('/', 'layout');
-  } catch (err) {
-    console.error('[Signout Route] Error signing out on server:', err);
+  } catch (error: unknown) {
+    console.error('[Signout Route] Error signing out on server:', error);
   }
 
   return NextResponse.json({ success: true });
@@ -19,8 +19,8 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     await supabase.auth.signOut();
     revalidatePath('/', 'layout');
-  } catch (err) {
-    console.error('[Signout Route] Error signing out on server:', err);
+  } catch (error: unknown) {
+    console.error('[Signout Route] Error signing out on server:', error);
   }
 
   const { origin } = new URL(request.url);

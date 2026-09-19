@@ -24,7 +24,7 @@ export class StripeProvider implements IPaymentProvider {
     }
   }
 
-  async createPaymentIntent(options: PaymentIntentOptions): Promise<PaymentIntentResult> {
+  async createPaymentIntent(_options: PaymentIntentOptions): Promise<PaymentIntentResult> {
     if (this.secretKey) {
       // In production with Stripe SDK, call stripe.paymentIntents.create
       // Here we provide standard clientSecret generation or mock fallback

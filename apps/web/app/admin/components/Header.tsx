@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { logout } from '../../auth/actions';
 
+import type { User } from '@supabase/supabase-js';
+
 const NOTIFICATIONS = [
   { id: 1, type: 'order', title: 'New Order: ORD-2904', time: '5m ago', read: false },
   { id: 2, type: 'alert', title: 'Low Stock: Wireless Mouse', time: '1h ago', read: false },
@@ -12,7 +14,7 @@ const NOTIFICATIONS = [
   { id: 4, type: 'user', title: 'New Admin Registered', time: '1d ago', read: true },
 ];
 
-export default function AdminHeader({ user }: { user: any }) {
+export default function AdminHeader({ user }: { user: User | null }) {
   const pathname = usePathname();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -80,7 +82,7 @@ export default function AdminHeader({ user }: { user: any }) {
                    <h3 className="text-sm font-bold text-neutral-900">Notifications</h3>
                    <span className="text-xs font-semibold text-neutral-500 hover:text-neutral-900 cursor-pointer">Mark all as read</span>
                 </div>
-                <div className="max-h-[300px] overflow-y-auto no-scrollbar">
+                <div className="max-h-75 overflow-y-auto no-scrollbar">
                    {NOTIFICATIONS.map(n => (
                       <div key={n.id} className={`p-4 border-b border-neutral-50 flex gap-3 hover:bg-neutral-50 transition-colors cursor-pointer ${n.read ? 'opacity-60' : 'bg-white'}`}>
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${

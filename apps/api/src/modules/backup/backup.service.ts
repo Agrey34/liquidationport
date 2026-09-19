@@ -1,11 +1,11 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class BackupService {
-  private supabaseAdmin;
+  private supabaseAdmin: SupabaseClient;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -29,12 +29,12 @@ export class BackupService {
           AND table_name NOT IN ('_prisma_migrations')
       `;
 
-      const backupData: Record<string, any[]> = {};
+      const backupData: Record<string, Record<string, unknown>[]> = {};
 
       // 2. Fetch rows from each table
       for (const { table_name } of tables) {
-        const rows = await this.prisma.$queryRawUnsafe(`SELECT * FROM public."${table_name}"`);
-        backupData[table_name] = rows as any[];
+        const rows = await this.prisma.$queryRawUnsafe<Record<string, unknown>[]>(`SELECT * FROM public."${table_name}"`);
+        backupData[table_name] = rows;
       }
 
       // 3. Ensure "backups" private storage bucket exists
@@ -68,9 +68,10 @@ export class BackupService {
         filename,
         sizeBytes: buffer.length,
       };
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('Backup creation failed:', err);
-      throw new InternalServerErrorException(`Backup failed: ${err.message}`);
+      throw new InternalServerErrorException(`Backup failed: ${errorMessage}`);
     }
   }
 
@@ -84,7 +85,7 @@ export class BackupService {
       if (downloadError) throw downloadError;
 
       const jsonStr = await data.text();
-      const backupData = JSON.parse(jsonStr) as Record<string, any[]>;
+      const backupData = JSON.parse(jsonStr) as Record<string, Record<string, unknown>[]>;
 
       // 2. Perform restoration in a single transaction
       await this.prisma.$transaction(async (tx) => {
@@ -122,9 +123,10 @@ export class BackupService {
         message: 'Database successfully restored to the snapshot.',
         filename,
       };
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('Database restore failed:', err);
-      throw new InternalServerErrorException(`Restore failed: ${err.message}`);
+      throw new InternalServerErrorException(`Restore failed: ${errorMessage}`);
     }
   }
 
@@ -139,9 +141,10 @@ export class BackupService {
 
       if (error) throw error;
       return data || [];
-    } catch (err) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('List backups failed:', err);
-      throw new InternalServerErrorException(`Failed to retrieve backups: ${err.message}`);
+      throw new InternalServerErrorException(`Failed to retrieve backups: ${errorMessage}`);
     }
   }
 }

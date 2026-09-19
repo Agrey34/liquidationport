@@ -1,10 +1,12 @@
-import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe, Req } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
 import { ReviewsService } from './reviews.service';
 import { ReviewQueryDto } from './dto/review-query.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { AuthenticatedUser } from '../../types/authenticated-request.interface';
 
 @Controller('reviews')
 export class ReviewsController {
@@ -31,7 +33,7 @@ export class ReviewsController {
 
   @UseGuards(SupabaseAuthGuard)
   @Post()
-  createReview(@Req() req: any, @Body() dto: CreateReviewDto) {
-    return this.reviewsService.createReview(req.user.id, dto);
+  createReview(@CurrentUser() user: AuthenticatedUser, @Body() dto: CreateReviewDto) {
+    return this.reviewsService.createReview(user.id, dto);
   }
 }

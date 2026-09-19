@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "modern-web-guidance": {
+      "source": "GoogleChrome/modern-web-guidance",
+      "sourceType": "github",
+      "skillPath": "skills/modern-web-guidance/SKILL.md",
+      "computedHash": "fee4eb58a7347f64e053c8869bb2f9777f00942083cf8a3a80ddcd6959a18cb7"
+    },
     "supabase": {
       "source": "supabase/agent-skills",
       "sourceType": "github",

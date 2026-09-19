@@ -18,8 +18,9 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { StorageService, ASSET_FOLDER_MAP } from './storage.service';
 import { PrismaService } from '../../database/prisma.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { Readable } from 'stream';
+import type { ReadableStream as WebReadableStream } from 'stream/web';
 import { UploadProductImageDto } from './dto/upload-product-image.dto';
 import { UploadOrderInvoiceDto } from './dto/upload-order-invoice.dto';
 import { IsOptional, IsString, IsIn } from 'class-validator';
@@ -320,15 +321,28 @@ export class StorageController {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
-      if (obj.body && typeof (obj.body as any).transformToByteArray === 'function') {
-        const byteArray = await (obj.body as any).transformToByteArray();
+      type Transformable = { transformToByteArray: () => Promise<Uint8Array> };
+      type Pipeable = { pipe: (res: Response) => unknown };
+
+      if (
+        typeof obj.body === 'object' &&
+        obj.body !== null &&
+        'transformToByteArray' in obj.body &&
+        typeof (obj.body as Transformable).transformToByteArray === 'function'
+      ) {
+        const byteArray = await (obj.body as Transformable).transformToByteArray();
         return res.end(Buffer.from(byteArray));
       } else if (obj.body instanceof Readable) {
         return obj.body.pipe(res);
-      } else if (obj.body && typeof (obj.body as any).pipe === 'function') {
-        return (obj.body as any).pipe(res);
-      } else {
-        const stream = Readable.fromWeb(obj.body as any);
+      } else if (
+        typeof obj.body === 'object' &&
+        obj.body !== null &&
+        'pipe' in obj.body &&
+        typeof (obj.body as Pipeable).pipe === 'function'
+      ) {
+        return (obj.body as Pipeable).pipe(res);
+      } else if (obj.body) {
+        const stream = Readable.fromWeb(obj.body as WebReadableStream);
         return stream.pipe(res);
       }
     } catch {

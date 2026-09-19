@@ -21,9 +21,11 @@ export class CleanupTask {
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async purgeExpiredGuestSessions(): Promise<void> {
     try {
-      const result = await this.prisma.guestSession.deleteMany({
-        where: { expiresAt: { lt: new Date() } },
-      });
+      const result = await this.prisma.withRetry(() =>
+        this.prisma.guestSession.deleteMany({
+          where: { expiresAt: { lt: new Date() } },
+        }),
+      );
 
       if (result.count > 0) {
         this.logger.log(`Purged ${result.count} expired guest sessions`);
@@ -40,9 +42,11 @@ export class CleanupTask {
   @Cron(CronExpression.EVERY_HOUR)
   async purgeExpiredIdempotencyKeys(): Promise<void> {
     try {
-      const result = await this.prisma.idempotencyKey.deleteMany({
-        where: { expiresAt: { lt: new Date() } },
-      });
+      const result = await this.prisma.withRetry(() =>
+        this.prisma.idempotencyKey.deleteMany({
+          where: { expiresAt: { lt: new Date() } },
+        }),
+      );
 
       if (result.count > 0) {
         this.logger.log(`Purged ${result.count} expired idempotency keys`);

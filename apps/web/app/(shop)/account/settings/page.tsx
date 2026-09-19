@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Phone, MapPin, Plus, Lock, Building, Trash2, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
+import { User, Mail, MapPin, Plus, Lock, Building, Trash2, CheckCircle2, AlertCircle, Loader2, X } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { createClient } from '@/lib/supabase/client';
@@ -79,10 +79,10 @@ export default function CustomerSettingsPage() {
             setAddresses(u.addresses);
           }
         }
-      } catch (err) {
+      } catch {
         // Fallback to dashboard overview if /users/me is missing
         try {
-          const dashRes = await apiFetch<any>('/users/dashboard');
+          const dashRes = await apiFetch<{ profile?: UserProfile }>('/users/dashboard');
           if (isMounted && dashRes?.data?.profile) {
             const p = dashRes.data.profile;
             setFirstName(p.firstName || '');
@@ -90,7 +90,7 @@ export default function CustomerSettingsPage() {
             setEmail(p.email || '');
             setBuyerType(p.buyerType || 'Retail Buyer');
           }
-        } catch (dashErr) {
+        } catch (dashErr: unknown) {
           console.error('Failed to load profile:', dashErr);
         }
       } finally {
@@ -113,7 +113,7 @@ export default function CustomerSettingsPage() {
       if (res?.data && Array.isArray(res.data)) {
         setAddresses(res.data);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to load addresses:', err);
     } finally {
       setIsAddressesLoading(false);
@@ -148,9 +148,10 @@ export default function CustomerSettingsPage() {
         }),
       });
       toast.success('Profile updated successfully!');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to update profile:', err);
-      toast.error(err?.message || 'Failed to update profile.');
+      toast.error(errMsg || 'Failed to update profile.');
     } finally {
       setIsSavingProfile(false);
     }
@@ -180,9 +181,10 @@ export default function CustomerSettingsPage() {
       toast.success('Password updated successfully!');
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to update password:', err);
-      toast.error(err?.message || 'Failed to update password.');
+      toast.error(errMsg || 'Failed to update password.');
     } finally {
       setIsUpdatingPassword(false);
     }
@@ -217,9 +219,10 @@ export default function CustomerSettingsPage() {
         setNewPostalCode('');
         setNewCountry('United States');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to create address:', err);
-      toast.error(err?.message || 'Failed to save address.');
+      toast.error(errMsg || 'Failed to save address.');
     } finally {
       setIsSavingAddress(false);
     }
@@ -234,9 +237,10 @@ export default function CustomerSettingsPage() {
       });
       setAddresses((prev) => prev.filter((addr) => addr.id !== id));
       toast.success('Address removed.');
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
       console.error('Failed to delete address:', err);
-      toast.error(err?.message || 'Failed to delete address.');
+      toast.error(errMsg || 'Failed to delete address.');
     } finally {
       setDeletingId(null);
     }
@@ -333,7 +337,7 @@ export default function CustomerSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-neutral-400" /> Account Email
                   </label>
                   <input
@@ -382,7 +386,7 @@ export default function CustomerSettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <label className="text-xs font-bold text-neutral-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                     <Building className="w-3.5 h-3.5 text-neutral-400" /> Company / Warehouse Name
                   </label>
                   <input
@@ -534,7 +538,7 @@ export default function CustomerSettingsPage() {
             {/* Add Address Action Card */}
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="border-2 border-dashed border-neutral-300 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-400 transition-all min-h-[190px] cursor-pointer"
+              className="border-2 border-dashed border-neutral-300 rounded-3xl p-6 flex flex-col items-center justify-center text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 hover:border-neutral-400 transition-all min-h-47.5 cursor-pointer"
             >
               <div className="w-12 h-12 bg-white border border-neutral-200 rounded-full flex items-center justify-center shadow-xs mb-3 text-neutral-700">
                 <Plus className="w-5 h-5" />

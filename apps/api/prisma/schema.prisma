@@ -101,6 +101,8 @@ model Product {
   @@index([status])
   @@index([deletedAt, createdAt])
   @@index([deletedAt, categoryId])
+  @@index([deletedAt, price])
+  @@index([deletedAt, status])
   @@index([name(ops: raw("gin_trgm_ops")), description(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("products")
 }
@@ -187,6 +189,7 @@ model CartItem {
   variant   ProductVariant @relation(fields: [variantId], references: [id])
 
   @@unique([cartId, variantId])
+  @@index([variantId])
   @@map("cart_items")
 }
 
@@ -206,6 +209,7 @@ model Order {
 
   @@index([userId])
   @@index([status])
+  @@index([total])
   @@index([createdAt(sort: Desc)])
   @@index([status, createdAt(sort: Desc)])
   @@index([userId, createdAt(sort: Desc)])
@@ -353,6 +357,7 @@ model WishlistItem {
   wishlist   Wishlist? @relation(fields: [wishlistId], references: [id], onDelete: Cascade)
 
   @@unique([wishlistId, productId])
+  @@index([productId])
   @@map("wishlist_items")
 }
 
@@ -397,6 +402,8 @@ model AuditLog {
   userAgent String?   @map("user_agent")
   createdAt DateTime? @default(now()) @map("created_at")
 
+  @@index([userId])
+  @@index([createdAt(sort: Desc)])
   @@map("audit_logs")
 }
 
@@ -482,6 +489,7 @@ model GuestCartItem {
 
   @@unique([guestCartId, variantId])
   @@index([guestCartId])
+  @@index([variantId])
   @@map("guest_cart_items")
 }
 
@@ -505,6 +513,7 @@ model GuestWishlistItem {
 
   @@unique([guestWishlistId, productId])
   @@index([guestWishlistId])
+  @@index([productId])
   @@map("guest_wishlist_items")
 }
 
@@ -566,6 +575,7 @@ model OutboxEvent {
   createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
 
   @@index([status, createdAt])
+  @@index([status, attempts, createdAt])
   @@index([eventType])
   @@map("outbox_events")
 }

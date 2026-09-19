@@ -94,19 +94,18 @@ export default function Navbar() {
         localStorage.removeItem('guest_wishlist');
       } catch {}
 
-      // Refresh cart and wishlist from the server
-      await Promise.all([
-        refreshCart(),
-        refreshWishlist(),
-        (async () => {
-          try {
-            const reservationRes = await apiFetch<{ hasActiveReservation: boolean; remainingSeconds: number }>('/carts/reservation');
-            if (reservationRes?.data?.remainingSeconds > 0) {
-              setSecondsRemaining(reservationRes.data.remainingSeconds);
-            }
-          } catch {}
-        })(),
-      ]);
+      // Refresh cart and wishlist sequentially from the server
+      await refreshCart();
+      await refreshWishlist();
+
+      if (res?.data && res.data.mergedCartItems > 0) {
+        try {
+          const reservationRes = await apiFetch<{ hasActiveReservation: boolean; remainingSeconds: number }>('/carts/reservation');
+          if (reservationRes?.data?.remainingSeconds && reservationRes.data.remainingSeconds > 0) {
+            setSecondsRemaining(reservationRes.data.remainingSeconds);
+          }
+        } catch {}
+      }
 
       if (res?.data?.warnings && res.data.warnings.length > 0) {
         res.data.warnings.forEach((warn) => toast.warning(warn));

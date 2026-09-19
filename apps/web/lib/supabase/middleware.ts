@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr'
+import type { User } from '@supabase/supabase-js'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
@@ -46,7 +47,7 @@ export async function updateSession(request: NextRequest) {
   )
 
   // Retrieve user with a safe 3-second timeout to prevent external Supabase latency from hanging page loads
-  let user: any = null
+  let user: User | null = null
   try {
     const userPromise = supabase.auth.getUser()
     const timeoutPromise = new Promise<{ data: { user: null } }>((resolve) =>

@@ -10,15 +10,20 @@ export interface ApiResponse<T> {
 
 export class ApiError extends Error {
   status: number;
-  data?: any;
+  data?: unknown;
   field?: string;
 
-  constructor(message: string, status: number, data?: any) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.data = data;
-    this.field = data?.field;
+    if (typeof data === 'object' && data !== null && 'field' in data) {
+      const maybeField = (data as { field?: unknown }).field;
+      if (typeof maybeField === 'string') {
+        this.field = maybeField;
+      }
+    }
   }
 }
 

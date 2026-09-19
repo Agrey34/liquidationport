@@ -8,7 +8,7 @@ import {
   ParseUUIDPipe,
   Query,
 } from '@nestjs/common';
-import { AuditService, CreateAuditLogParams, AuditQueryParams } from './audit.service';
+import { AuditService, AuditQueryParams } from './audit.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';

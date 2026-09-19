@@ -1,5 +1,6 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, Inject, Optional } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { CACHE_SERVICE, ICacheService } from '../../common/cache/cache.interface';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderStatus, PaymentStatus, Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
@@ -10,7 +11,10 @@ import { assertValidOrderTransition } from './order-state-machine';
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() @Inject(CACHE_SERVICE) private readonly cacheService?: ICacheService,
+  ) {}
 
   /**
    * Creates a new order using a secure Prisma transaction.
@@ -157,13 +161,14 @@ export class OrdersService {
 
       // 7. Save Idempotency key if provided
       if (idempotencyKey && tx.idempotencyKey?.upsert) {
+        const jsonOrder = JSON.parse(JSON.stringify(order)) as Prisma.InputJsonValue;
         await tx.idempotencyKey.upsert({
           where: { key: idempotencyKey },
-          update: { responseBody: order as any },
+          update: { responseBody: jsonOrder },
           create: {
             key: idempotencyKey,
             userId,
-            responseBody: order as any,
+            responseBody: jsonOrder,
             statusCode: 201,
             expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours TTL
           },
@@ -306,97 +311,106 @@ export class OrdersService {
       orderBy = { id: sortDirection };
     }
 
-    // Execute optimized queries in parallel without blocking transactions
+    // Execute queries with controlled concurrency and cached KPIs
     const tDbStart = performance.now();
-    const [rawOrders, total, kpiRows] = await Promise.all([
-      // 1. Paginated Orders with lean select (only required columns, single address)
-      this.prisma.order.findMany({
-        where,
-        orderBy,
-        skip,
-        take: safeLimit,
-        select: {
-          id: true,
-          total: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-          items: {
-            select: {
-              id: true,
-              productName: true,
-              sku: true,
-              quantity: true,
-              price: true,
-            }
-          },
-          statusHistory: {
-            orderBy: { createdAt: 'desc' },
-            select: {
-              id: true,
-              status: true,
-              note: true,
-              createdAt: true,
-            }
-          },
-          payment: {
-            select: {
-              status: true,
-              provider: true,
-            }
-          },
-          shipment: {
-            select: {
-              tracking: true,
-            }
-          },
-          user: {
-            select: {
-              id: true,
-              email: true,
-              phone: true,
-              addresses: {
-                take: 1,
-                select: {
-                  addressLine: true,
-                  city: true,
-                  country: true,
-                  postalCode: true,
-                }
+    const rawOrders = await this.prisma.order.findMany({
+      where,
+      orderBy,
+      skip,
+      take: safeLimit,
+      select: {
+        id: true,
+        total: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        items: {
+          select: {
+            id: true,
+            productName: true,
+            sku: true,
+            quantity: true,
+            price: true,
+          }
+        },
+        statusHistory: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            note: true,
+            createdAt: true,
+          }
+        },
+        payment: {
+          select: {
+            status: true,
+            provider: true,
+          }
+        },
+        shipment: {
+          select: {
+            tracking: true,
+          }
+        },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            phone: true,
+            addresses: {
+              take: 1,
+              select: {
+                addressLine: true,
+                city: true,
+                country: true,
+                postalCode: true,
               }
             }
           }
         }
-      }),
-      // 2. Filtered total count for pagination metadata
-      this.prisma.order.count({ where }),
-      // 3. Platform consolidated KPI metrics (computed in a single database round-trip)
-      this.prisma.$queryRaw<Array<{
+      }
+    });
+
+    // 2. Filtered total count for pagination metadata (fast-path for page 1)
+    let total: number;
+    if (safePage === 1 && rawOrders.length < safeLimit && !skip) {
+      total = rawOrders.length;
+    } else {
+      total = await this.prisma.order.count({ where });
+    }
+
+    // 3. Platform consolidated KPI metrics (cached for 60s to prevent constant heavy full-table scans)
+    const fetchKpis = async () => {
+      const rows = await this.prisma.$queryRaw<Array<{
         totalOrders: number;
         pendingOrders: number;
         totalRevenue: number;
         attentionRequired: number;
       }>>`
         SELECT 
-          COUNT(DISTINCT o.id)::int AS "totalOrders",
-          COUNT(DISTINCT o.id) FILTER (WHERE o.status = 'pending')::int AS "pendingOrders",
-          COALESCE(SUM(DISTINCT o.total) FILTER (WHERE o.status != 'cancelled'), 0)::float AS "totalRevenue",
-          COUNT(DISTINCT o.id) FILTER (
+          COUNT(o.id)::int AS "totalOrders",
+          COUNT(o.id) FILTER (WHERE o.status = 'pending')::int AS "pendingOrders",
+          COALESCE(SUM(o.total) FILTER (WHERE o.status != 'cancelled'), 0)::float AS "totalRevenue",
+          COUNT(o.id) FILTER (
             WHERE o.status = 'pending' 
             OR p.status = 'failed'
           )::int AS "attentionRequired"
         FROM "orders" o
         LEFT JOIN "payments" p ON p.order_id = o.id;
-      `
-    ]);
-    const dbDuration = performance.now() - tDbStart;
-
-    const kpiData = kpiRows?.[0] || {
-      totalOrders: 0,
-      pendingOrders: 0,
-      totalRevenue: 0,
-      attentionRequired: 0,
+      `;
+      return rows?.[0] || {
+        totalOrders: 0,
+        pendingOrders: 0,
+        totalRevenue: 0,
+        attentionRequired: 0,
+      };
     };
+
+    const kpiData = this.cacheService
+      ? await this.cacheService.getOrSet('admin:orders:kpis', fetchKpis, { ttlSeconds: 60 })
+      : await fetchKpis();
+    const dbDuration = performance.now() - tDbStart;
 
     // Map raw orders to comprehensive AppOrder format for the frontend
     const tMapStart = performance.now();

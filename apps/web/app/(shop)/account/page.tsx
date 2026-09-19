@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Package, MapPin, CreditCard, ChevronRight, Truck, ArrowRight } from 'lucide-react';
+import { Package, MapPin, CreditCard, ChevronRight, Truck, ArrowRight, AlertCircle } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 
 interface DashboardMetrics {
@@ -42,7 +42,7 @@ export default function CustomerDashboardOverview() {
         if (isMounted && res?.data) {
           setData(res.data);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error fetching dashboard overview:', err);
         if (isMounted) setError('Unable to load dashboard metrics right now.');
       } finally {
@@ -69,10 +69,17 @@ export default function CustomerDashboardOverview() {
         </div>
       </div>
 
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-700 text-sm font-medium">
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-500" />
+          <span>{error}</span>
+        </div>
+      )}
+
       {/* Overview Metrics Cards */}
       <div className="flex overflow-x-auto pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory gap-4 md:grid md:grid-cols-3 md:gap-6 scrollbar-hide">
         {/* Active Orders */}
-        <div className="w-[85%] sm:w-[300px] md:w-auto shrink-0 snap-center bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs transition-all hover:border-neutral-300">
+        <div className="w-[85%] sm:w-75 md:w-auto shrink-0 snap-center bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs transition-all hover:border-neutral-300">
           <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-4">
             <Package className="w-5 h-5" />
           </div>
@@ -89,7 +96,7 @@ export default function CustomerDashboardOverview() {
         </div>
 
         {/* Lifetime Spend */}
-        <div className="w-[85%] sm:w-[300px] md:w-auto shrink-0 snap-center bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs transition-all hover:border-neutral-300">
+        <div className="w-[85%] sm:w-75 md:w-auto shrink-0 snap-center bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs transition-all hover:border-neutral-300">
           <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mb-4">
             <CreditCard className="w-5 h-5" />
           </div>
@@ -106,7 +113,7 @@ export default function CustomerDashboardOverview() {
         </div>
 
         {/* Saved Addresses */}
-        <div className="w-[85%] sm:w-[300px] md:w-auto shrink-0 snap-center bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs transition-all hover:border-neutral-300">
+        <div className="w-[85%] sm:w-75 md:w-auto shrink-0 snap-center bg-white border border-neutral-200 rounded-3xl p-6 shadow-xs transition-all hover:border-neutral-300">
           <div className="w-10 h-10 bg-orange-50 text-orange-600 rounded-xl flex items-center justify-center mb-4">
             <MapPin className="w-5 h-5" />
           </div>

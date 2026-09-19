@@ -22,7 +22,7 @@ export async function login(formData: FormData) {
   }
 
   // Attempt login via Supabase
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
@@ -95,7 +95,7 @@ export async function signup(formData: FormData) {
       const errorMsg = data?.message || data?.error || 'Registration failed. Invalid authorization passcode.';
       return { error: errorMsg };
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     return { error: getCleanErrorMessage(err, 'Unable to connect to authentication server. Please try again.') };
   }
 

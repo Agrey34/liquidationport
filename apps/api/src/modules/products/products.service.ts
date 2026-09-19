@@ -105,40 +105,90 @@ export class ProductsService {
         if (sortBy === SortByEnum.PRICE_DESC) orderBy = { price: 'desc' };
         if (sortBy === SortByEnum.CREATED_AT) orderBy = { createdAt: 'desc' };
 
-        const [data, total] = await Promise.all([
-          this.prisma.product.findMany({
-            where,
-            orderBy,
-            skip,
-            take: safeLimit,
-            include: {
-              category: {
-                select: { id: true, name: true, slug: true }
-              },
-              variants: {
-                select: {
-                  id: true,
-                  name: true,
-                  sku: true,
-                  price: true,
-                  stock: true,
-                  condition: true,
-                  upc: true,
-                  msrp: true,
-                  manufacturer: true,
-                }
-              },
-              media: {
-                select: { id: true, url: true, altText: true, position: true },
-                orderBy: { position: 'asc' },
-              },
-              tags: {
-                include: { tag: true },
-              },
+        // Selective projection to eliminate bloated manifest JSON, tags overhead, and admin fields
+        const selectFields: Prisma.ProductSelect = {
+          id: true,
+          name: true,
+          slug: true,
+          description: true,
+          price: true,
+          comparePrice: true,
+          stock: true,
+          condition: true,
+          status: true,
+          sku: true,
+          liquidatorName: true,
+          liquidatorLogo: true,
+          ratingAvg: true,
+          ratingCount: true,
+          createdAt: true,
+          updatedAt: true,
+          category: {
+            select: { id: true, name: true, slug: true },
+          },
+          variants: {
+            select: {
+              id: true,
+              name: true,
+              sku: true,
+              price: true,
+              stock: true,
+              condition: true,
+              upc: true,
+              msrp: true,
+              manufacturer: true,
+            },
+            take: 5,
+          },
+          media: {
+            select: { id: true, url: true, altText: true, position: true },
+            orderBy: { position: 'asc' },
+            take: 3,
+          },
+        };
+
+        // Query execution with fast-path count optimization and parallel execution
+        const executeQueries = async () => {
+          if (safePage === 1) {
+            const rawData = await this.prisma.product.findMany({
+              where,
+              orderBy,
+              skip: 0,
+              take: safeLimit + 1,
+              select: selectFields,
+            });
+
+            if (rawData.length <= safeLimit) {
+              return {
+                data: rawData,
+                total: rawData.length,
+              };
             }
-          }),
-          this.prisma.product.count({ where })
-        ]);
+
+            // More products exist than safeLimit; execute count for accurate pagination
+            const total = await this.prisma.product.count({ where });
+            return {
+              data: rawData.slice(0, safeLimit),
+              total,
+            };
+          }
+
+          // Page > 1: execute data and count in parallel to avoid sequential network round-trips
+          const [data, total] = await Promise.all([
+            this.prisma.product.findMany({
+              where,
+              orderBy,
+              skip,
+              take: safeLimit,
+              select: selectFields,
+            }),
+            this.prisma.product.count({ where }),
+          ]);
+
+          return { data, total };
+        };
+
+        const { data, total } = await this.prisma.withRetry(() => executeQueries());
 
         const sanitizedData = data.map((product) => ({
           ...product,
@@ -153,7 +203,7 @@ export class ProductsService {
           total,
           page: safePage,
           limit: safeLimit,
-          totalPages: Math.ceil(total / safeLimit)
+          totalPages: Math.ceil(total / safeLimit),
         };
       },
       { ttlSeconds: 300 }
@@ -505,7 +555,7 @@ export class ProductsService {
       // Invalidate product caches
       await this.clearProductCache();
       return product;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const target = (err.meta?.target as string[]) || [];
         if (target.includes('sku') || String(err.meta?.target).includes('sku')) {
@@ -720,7 +770,7 @@ export class ProductsService {
       // Invalidate product caches
       await this.clearProductCache();
       return product;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const target = (err.meta?.target as string[]) || [];
         if (target.includes('sku') || String(err.meta?.target).includes('sku')) {

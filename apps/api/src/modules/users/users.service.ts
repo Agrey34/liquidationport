@@ -2,7 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { UpdateUserDto } from './dto/user.dto';
 import { ConfigService } from '@nestjs/config';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
+
+export interface AuditLogSummary {
+  action: string;
+  timestamp: string;
+  ip: string;
+  device: string;
+}
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -35,7 +42,7 @@ function getAvatarColor(name: string): string {
 
 @Injectable()
 export class UsersService {
-  private supabaseAdmin: any = null;
+  private supabaseAdmin: SupabaseClient | null = null;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -78,7 +85,7 @@ export class UsersService {
             },
           });
         }
-      } catch (e) {
+      } catch {
         // ignore error
       }
     }
@@ -131,7 +138,7 @@ export class UsersService {
               },
             });
           }
-        } catch (e) {
+        } catch {
           // ignore error
         }
       }
@@ -259,7 +266,7 @@ export class UsersService {
             },
           });
         }
-      } catch (e) {
+      } catch {
         // ignore error
       }
     }
@@ -285,7 +292,7 @@ export class UsersService {
     });
 
     // 2. Fetch all users from Supabase Auth
-    let authUsersMap = new Map<string, any>();
+    const authUsersMap = new Map<string, SupabaseUser>();
     if (this.supabaseAdmin) {
       try {
         const { data, error } = await this.supabaseAdmin.auth.admin.listUsers();
@@ -295,16 +302,20 @@ export class UsersService {
             authUsersMap.set(user.id, user);
           }
         }
-      } catch (err: any) {
-        console.error('Failed to list users from Supabase Auth:', err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error('Failed to list users from Supabase Auth:', msg);
       }
     }
 
-    // 3. Fetch recent audit logs for activity mapping
-    let auditLogsMap = new Map<string, any[]>();
+    // 3. Fetch recent audit logs for activity mapping (bounded to fetched user IDs)
+    const auditLogsMap = new Map<string, AuditLogSummary[]>();
     try {
+      const userIds = dbUsers.map((u) => u.id);
       const logs = await this.prisma.auditLog.findMany({
+        where: { userId: { in: userIds } },
         orderBy: { createdAt: 'desc' },
+        take: 250,
       });
       for (const log of logs) {
         if (log.userId) {
@@ -322,8 +333,9 @@ export class UsersService {
           }
         }
       }
-    } catch (err: any) {
-      console.error('Failed to fetch audit logs:', err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Failed to fetch audit logs:', msg);
     }
 
     // 4. Merge data
@@ -384,8 +396,9 @@ export class UsersService {
         } else if (status === 'active') {
           await this.supabaseAdmin.auth.admin.updateUserById(id, { ban_duration: 'none' });
         }
-      } catch (err: any) {
-        console.error(`Failed to sync ban status to Supabase Auth for ${id}:`, err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to sync ban status to Supabase Auth for ${id}:`, msg);
       }
     }
 
@@ -405,8 +418,9 @@ export class UsersService {
         await this.supabaseAdmin.auth.admin.updateUserById(id, {
           app_metadata: { role },
         });
-      } catch (err: any) {
-        console.error(`Failed to sync role to Supabase Auth for ${id}:`, err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to sync role to Supabase Auth for ${id}:`, msg);
       }
     }
 
@@ -424,8 +438,9 @@ export class UsersService {
     if (this.supabaseAdmin) {
       try {
         await this.supabaseAdmin.auth.admin.deleteUser(id);
-      } catch (err: any) {
-        console.error(`Failed to delete user in Supabase Auth for ${id}:`, err.message);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to delete user in Supabase Auth for ${id}:`, msg);
       }
     }
   }

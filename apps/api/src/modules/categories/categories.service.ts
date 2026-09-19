@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException, Logger, Inject, Optional } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { CACHE_SERVICE, ICacheService } from '../../common/cache/cache.interface';
 import { CreateCategoryDto, UpdateCategoryDto } from './dto/category.dto';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class CategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    @Optional() @Inject(CACHE_SERVICE) private readonly cacheService?: ICacheService,
   ) {}
 
   async uploadImage(file: Express.Multer.File) {
@@ -41,20 +43,39 @@ export class CategoriesService {
       throw new ConflictException('Category with this slug already exists');
     }
 
-    return this.prisma.category.create({
+    const created = await this.prisma.category.create({
       data: createCategoryDto,
     });
+
+    if (this.cacheService) {
+      await this.cacheService.del('categories:all');
+    }
+
+    return created;
   }
 
   async findAll() {
-    return this.prisma.category.findMany({
-      orderBy: { name: 'asc' },
-      include: {
-        _count: {
-          select: { products: true },
-        },
-      },
-    });
+    const fetcher = () =>
+      this.prisma.withRetry(() =>
+        this.prisma.category.findMany({
+          orderBy: { name: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            imageUrl: true,
+            createdAt: true,
+            _count: {
+              select: { products: true },
+            },
+          },
+        }),
+      );
+
+    if (this.cacheService) {
+      return this.cacheService.getOrSet('categories:all', fetcher, { ttlSeconds: 600 });
+    }
+    return fetcher();
   }
 
   async findOne(id: string) {
@@ -83,18 +104,30 @@ export class CategoriesService {
       }
     }
 
-    return this.prisma.category.update({
+    const updated = await this.prisma.category.update({
       where: { id },
       data: updateCategoryDto,
     });
+
+    if (this.cacheService) {
+      await this.cacheService.del('categories:all');
+    }
+
+    return updated;
   }
 
   async remove(id: string) {
     // Check if category exists
     await this.findOne(id);
 
-    return this.prisma.category.delete({
+    const deleted = await this.prisma.category.delete({
       where: { id },
     });
+
+    if (this.cacheService) {
+      await this.cacheService.del('categories:all');
+    }
+
+    return deleted;
   }
 }

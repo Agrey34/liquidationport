@@ -64,27 +64,45 @@ interface StoreContextType {
   resetStore: () => void;
 }
 
-type DbCart = {
-  items?: Array<{
+type DbCartItem = {
+  id?: string;
+  quantity?: number;
+  qty?: number;
+  variantId?: string;
+  productId?: string;
+  title?: string;
+  price?: number | string;
+  sku?: string;
+  img?: string;
+  slug?: string;
+  condition?: string;
+  variant?: {
     id: string;
-    quantity: number;
-    variant: {
-      id: string;
-      productId: string;
-      sku?: string;
-      price: number | string;
+    productId: string;
+    sku?: string;
+    price: number | string;
+    condition?: string;
+    product: {
+      name: string;
+      slug: string;
       condition?: string;
-      product: {
-        name: string;
-        slug: string;
-        condition?: string;
-        media?: Array<{ url: string }>;
-      };
+      media?: Array<{ url: string }>;
     };
-  }>;
+  };
+};
+
+type DbCart = {
+  items?: DbCartItem[];
 };
 
 type DbWishlistItem = {
+  id?: string;
+  title?: string;
+  name?: string;
+  slug?: string;
+  price?: number | string;
+  img?: string;
+  condition?: string;
   product?: {
     id: string;
     name: string;
@@ -95,44 +113,102 @@ type DbWishlistItem = {
   };
 };
 
+type DbWishlistResponse = DbWishlistItem[] | { items?: DbWishlistItem[] };
+
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const mapCart = (cart: DbCart): CartItem[] =>
-  (cart.items ?? []).map((item) => ({
-    id: item.variant.id,
-    cartItemId: item.id,
-    productId: item.variant.productId,
-    title: item.variant.product.name,
-    price: Number(item.variant.price),
-    qty: item.quantity,
-    sku: item.variant.sku,
-    img: item.variant.product.media?.[0]?.url ?? '',
-    slug: item.variant.product.slug,
-    condition: item.variant.condition ?? item.variant.product.condition,
-  }));
+const mapCart = (cart: DbCart | DbCartItem[] | null | undefined): CartItem[] => {
+  if (!cart) return [];
+  const items = Array.isArray(cart) ? cart : (cart.items ?? []);
 
-const mapWishlist = (items: DbWishlistItem[]): WishlistItem[] =>
-  items.flatMap(({ product }) =>
-    product
-      ? [
-          {
-            id: product.id,
-            title: product.name,
-            price: Number(product.price),
-            img: product.media?.[0]?.url ?? '',
-            slug: product.slug,
-            condition: product.condition,
-          },
-        ]
-      : [],
-  );
+  return items.flatMap((item): CartItem[] => {
+    if (!item) return [];
+
+    // Case 1: Authenticated cart structure with nested variant & product
+    if (item.variant) {
+      return [
+        {
+          id: item.variant.id,
+          cartItemId: item.id,
+          productId: item.variant.productId,
+          title: item.variant.product.name,
+          price: Number(item.variant.price),
+          qty: item.quantity ?? item.qty ?? 1,
+          sku: item.variant.sku,
+          img: item.variant.product.media?.[0]?.url ?? '',
+          slug: item.variant.product.slug,
+          condition: item.variant.condition ?? item.variant.product.condition,
+        },
+      ];
+    }
+
+    // Case 2: Guest cart structure with flattened properties
+    const id = item.variantId ?? item.id;
+    if (id) {
+      return [
+        {
+          id,
+          cartItemId: item.id,
+          productId: item.productId,
+          title: item.title ?? '',
+          price: Number(item.price ?? 0),
+          qty: item.quantity ?? item.qty ?? 1,
+          sku: item.sku,
+          img: item.img ?? '',
+          slug: item.slug,
+          condition: item.condition,
+        },
+      ];
+    }
+
+    return [];
+  });
+};
+
+const mapWishlist = (data: DbWishlistResponse | null | undefined): WishlistItem[] => {
+  if (!data) return [];
+  const items = Array.isArray(data) ? data : (data.items ?? []);
+
+  return items.flatMap((item): WishlistItem[] => {
+    if (!item) return [];
+
+    // Case 1: Authenticated wishlist structure with nested product
+    if (item.product) {
+      return [
+        {
+          id: item.product.id,
+          title: item.product.name,
+          price: Number(item.product.price),
+          img: item.product.media?.[0]?.url ?? '',
+          slug: item.product.slug,
+          condition: item.product.condition,
+        },
+      ];
+    }
+
+    // Case 2: Guest wishlist structure with flattened properties
+    if (item.id) {
+      return [
+        {
+          id: item.id,
+          title: item.title ?? item.name ?? '',
+          price: Number(item.price ?? 0),
+          img: item.img ?? '',
+          slug: item.slug,
+          condition: item.condition,
+        },
+      ];
+    }
+
+    return [];
+  });
+};
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
 
   const cartFetchRef = useRef<Promise<void> | null>(null);
   const wishlistFetchRef = useRef<Promise<void> | null>(null);
@@ -157,7 +233,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (res?.data) {
           setCart(mapCart(res.data));
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.warn('[StoreContext] refreshCart failed:', err);
       }
     })();
@@ -177,11 +253,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         const session = await getSession();
         const endpoint = session ? '/carts/wishlist' : '/guest/wishlist';
-        const res = await apiFetch<DbWishlistItem[]>(endpoint);
+        const res = await apiFetch<DbWishlistResponse>(endpoint);
         if (res?.data) {
           setWishlist(mapWishlist(res.data));
         }
-      } catch (err) {
+      } catch (err: unknown) {
         console.warn('[StoreContext] refreshWishlist failed:', err);
       }
     })();
@@ -194,7 +270,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [getSession]);
 
-  // Initial load: fetch server-backed state (HttpOnly cookie sets automatically on guest)
+  // Initial load: fetch server-backed state sequentially to avoid connection bursts
   useEffect(() => {
     // Purge legacy localStorage cart/wishlist to prevent stale data contamination
     try {
@@ -202,9 +278,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('guest_wishlist');
     } catch {}
 
-    Promise.all([refreshCart(), refreshWishlist()]).finally(() => {
-      setIsHydrated(true);
-    });
+    void (async () => {
+      await refreshCart();
+      await refreshWishlist();
+    })();
   }, [refreshCart, refreshWishlist]);
 
   const addToCart = useCallback(
@@ -236,7 +313,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (res?.data?.items) {
           setCart(mapCart(res.data));
         }
-      } catch (err) {
+      } catch (err: unknown) {
         await refreshCart();
         throw err;
       } finally {

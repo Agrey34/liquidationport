@@ -10,37 +10,54 @@ export class CartsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getCart(userId: string) {
-    let cart = await this.prisma.cart.findUnique({
-      where: { userId },
-      include: {
-        items: {
-          include: {
-            variant: {
-              include: {
-                product: { include: { media: { take: 1 } } },
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!cart) {
-      cart = await this.prisma.cart.create({
-        data: { userId },
-        include: {
+    return this.prisma.withRetry(async () => {
+      // Atomic upsert ensures cart existence in a single round-trip while projecting only necessary fields
+      return this.prisma.cart.upsert({
+        where: { userId },
+        create: { userId },
+        update: {},
+        select: {
+          id: true,
+          userId: true,
+          createdAt: true,
+          reservedUntil: true,
+          reservationToken: true,
           items: {
-            include: {
+            select: {
+              id: true,
+              cartId: true,
+              variantId: true,
+              quantity: true,
               variant: {
-                include: { product: { include: { media: { take: 1 } } } },
+                select: {
+                  id: true,
+                  sku: true,
+                  name: true,
+                  price: true,
+                  stock: true,
+                  condition: true,
+                  product: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                      price: true,
+                      condition: true,
+                      status: true,
+                      media: {
+                        take: 1,
+                        select: { url: true, altText: true },
+                        orderBy: { position: 'asc' },
+                      },
+                    },
+                  },
+                },
               },
             },
           },
         },
       });
-    }
-
-    return cart;
+    });
   }
 
   async addItem(userId: string, addToCartDto: AddToCartDto) {
@@ -134,24 +151,50 @@ export class CartsService {
   }
 
   async getWishlist(userId: string) {
-    const wishlist = await this.prisma.wishlist.findUnique({
-      where: { userId },
-      include: { items: { include: { product: { include: { media: { take: 1 } } } } } },
-    });
+    const wishlist = await this.prisma.withRetry(() =>
+      this.prisma.wishlist.findUnique({
+        where: { userId },
+        select: {
+          items: {
+            select: {
+              id: true,
+              productId: true,
+              wishlistId: true,
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  price: true,
+                  condition: true,
+                  status: true,
+                  media: { take: 1, select: { url: true } },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
     return wishlist?.items ?? [];
   }
 
   async addWishlistItem(userId: string, productId: string) {
     const product = await this.prisma.product.findFirst({ where: { id: productId, deletedAt: null }, select: { id: true } });
     if (!product) throw new NotFoundException('Product not found');
-    return this.prisma.$transaction(async (tx) => {
-      const wishlist = await tx.wishlist.upsert({ where: { userId }, create: { userId }, update: {} });
-      return tx.wishlistItem.upsert({
-        where: { wishlistId_productId: { wishlistId: wishlist.id, productId } },
-        create: { wishlistId: wishlist.id, productId },
-        update: {},
-      });
-    }, { maxWait: 5000, timeout: 15000 });
+
+    const wishlist = await this.prisma.wishlist.upsert({
+      where: { userId },
+      create: { userId },
+      update: {},
+      select: { id: true },
+    });
+
+    return this.prisma.wishlistItem.upsert({
+      where: { wishlistId_productId: { wishlistId: wishlist.id, productId } },
+      create: { wishlistId: wishlist.id, productId },
+      update: {},
+    });
   }
 
   async removeWishlistItem(userId: string, productId: string) {
@@ -264,8 +307,6 @@ export class CartsService {
             },
           });
 
-          const inventoryUpdates: Promise<unknown>[] = [];
-
           for (const [key, requestedQty] of mergedItemMap.entries()) {
             const variant = variants.find((v) => v.id === key || v.productId === key);
 
@@ -291,20 +332,13 @@ export class CartsService {
             finalItemsToReserve.push({ variantId: variant.id, quantity: grantedQty });
 
             if (variant.inventory) {
-              inventoryUpdates.push(
-                tx.inventory.update({
-                  where: { id: variant.inventory.id },
-                  data: {
-                    reserved: { increment: grantedQty },
-                  },
-                })
-              );
+              await tx.inventory.update({
+                where: { id: variant.inventory.id },
+                data: {
+                  reserved: { increment: grantedQty },
+                },
+              });
             }
-          }
-
-          // Execute all inventory reservation updates in parallel
-          if (inventoryUpdates.length > 0) {
-            await Promise.all(inventoryUpdates);
           }
         }
 
@@ -315,11 +349,13 @@ export class CartsService {
         });
 
         if (finalItemsToReserve.length > 0) {
-          await Promise.all(finalItemsToReserve.map((item) => tx.cartItem.upsert({
-            where: { cartId_variantId: { cartId: cart.id, variantId: item.variantId } },
-            create: { cartId: cart.id, variantId: item.variantId, quantity: item.quantity },
-            update: { quantity: { set: item.quantity } },
-          })));
+          for (const item of finalItemsToReserve) {
+            await tx.cartItem.upsert({
+              where: { cartId_variantId: { cartId: cart.id, variantId: item.variantId } },
+              create: { cartId: cart.id, variantId: item.variantId, quantity: item.quantity },
+              update: { quantity: { set: item.quantity } },
+            });
+          }
 
           await tx.cart.update({
             where: { id: cart.id },
@@ -372,7 +408,7 @@ export class CartsService {
       },
       {
         maxWait: 5000,
-        timeout: 15000,
+        timeout: 10000,
       }
     );
   }
